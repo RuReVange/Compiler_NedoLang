@@ -1,0 +1,37 @@
+function sieve(n) {
+    var isPrime = [];
+    var i = 0;
+    while (i <= n) {
+        isPrime[i] = true;
+        i = i + 1;
+    }
+
+    isPrime[0] = false;
+    isPrime[1] = false;
+
+    var p = 2;
+    while (p * p <= n) {
+        if (isPrime[p]) {
+            var i = p * p;
+            while (i <= n) {
+                isPrime[i] = false;
+                i = i + p;
+            }
+        }
+        p = p + 1;
+    }
+
+    var primes = [];
+    var i = 2;
+    while (i <= n) {
+        if (isPrime[i]) {
+            primes.push(i);
+        }
+        i = i + 1;
+    }
+
+    return primes;
+}
+
+var primesUpTo100000 = sieve(100000);
+print(primesUpTo100000);
