@@ -18,9 +18,9 @@ function quickSort(arr) {
         var i = 1;
         while (i < length(arr)) {
             if (arr[i] <= pivot) {
-                less.push(arr[i]);
+                push(less, arr[i]);
             } else {
-                greater.push(arr[i]);
+                push(greater, arr[i]);
             }
             i = i + 1;
         }
@@ -28,6 +28,7 @@ function quickSort(arr) {
     }
 }
 
-var array = generateArray(10000);
-var sortedArray = quickSort(array);
+var arr = generateArray(10000);
+print(arr);
+var sortedArray = quickSort(arr);
 print(sortedArray);

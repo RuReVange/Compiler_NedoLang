@@ -6,7 +6,7 @@ function fact(n) {
     }
 }
 
-print(fact(10));
+print(fact(20));
 
 var arr = [5, 2, 8, 3, 1];
 print(arr);

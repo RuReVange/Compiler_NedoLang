@@ -208,7 +208,7 @@ public class Parser {
 
     private ASTNode parsePrimary() {
         if (match(TokenType.NUMBER)) {
-            return new NumberExpression(Integer.parseInt(previous().lexeme));
+            return new NumberExpression(Long.parseLong(previous().lexeme));
         }
         if (match(TokenType.IDENTIFIER)) {
             String name = previous().lexeme;

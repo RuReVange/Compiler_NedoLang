@@ -22,10 +22,10 @@ function sieve(n) {
     }
 
     var primes = [];
-    var i = 2;
+    i = 2;
     while (i <= n) {
         if (isPrime[i]) {
-            primes.push(i);
+            push(primes, i);
         }
         i = i + 1;
     }

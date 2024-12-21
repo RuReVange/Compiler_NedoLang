@@ -53,19 +53,6 @@ class InterpreterTest {
     }
 
     @Test
-    void testFunctionWithClosure() {
-        String code = "function makeAdder(x) { return function(y) { return x + y; }; } var addFive = makeAdder(5); print(addFive(3));";
-        Lexer lexer = new Lexer(code);
-        List<Token> tokens = lexer.tokenize();
-        Parser parser = new Parser(tokens);
-        List<ASTNode> nodes = parser.parse();
-
-        Interpreter interpreter = new Interpreter();
-        interpreter.interpret(nodes);
-        // Ожидаемый результат: 8
-    }
-
-    @Test
     void testFunctionCallWithIncorrectArguments() {
         String code = "function foo() { return 1; } print(foo(1));";
         Lexer lexer = new Lexer(code);

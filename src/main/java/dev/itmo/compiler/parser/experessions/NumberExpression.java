@@ -4,9 +4,9 @@ import dev.itmo.compiler.parser.ASTNode;
 import dev.itmo.compiler.parser.ASTVisitor;
 
 public class NumberExpression implements ASTNode {
-    public final int value;
+    public final long value;  // Изменено с int на long
 
-    public NumberExpression(int value) {
+    public NumberExpression(long value) {  // Изменено с int на long
         this.value = value;
     }
 

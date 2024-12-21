@@ -18,12 +18,41 @@ public class Interpreter implements ASTVisitor<Object> {
         this.globalEnv = new Environment(null);
         this.currentEnv = globalEnv;
 
+        globalEnv.define("true", true);
+        globalEnv.define("false", false);
+
         // Встроенные функции
         globalEnv.define("print", new BuiltInFunction("print", (args) -> {
             for (Object arg : args) {
                 System.out.println(arg);
             }
             return null;
+        }));
+
+        // Новая функция length для массивов
+        globalEnv.define("length", new BuiltInFunction("length", (args) -> {
+            if (args.size() != 1 || !(args.get(0) instanceof List)) {
+                throw new RuntimeException("length() expects one array argument");
+            }
+            return (long) ((List<?>) args.get(0)).size();
+        }));
+
+
+        globalEnv.define("push", new BuiltInFunction("push", (args) -> {
+            if (args.size() != 2 || !(args.get(0) instanceof List)) {
+                throw new RuntimeException("push() expects array and value arguments");
+            }
+            ((List<Object>) args.get(0)).add(args.get(1));
+            return null;
+        }));
+
+        globalEnv.define("randomInt", new BuiltInFunction("randomInt", (args) -> {
+            if (args.size() != 2 || !(args.get(0) instanceof Long) || !(args.get(1) instanceof Long)) {
+                throw new RuntimeException("randomInt() expects two integer arguments");
+            }
+            long min = (Long) args.get(0);
+            long max = (Long) args.get(1);
+            return min + (long)(Math.random() * ((max - min) + 1));
         }));
     }
 
@@ -48,37 +77,66 @@ public class Interpreter implements ASTVisitor<Object> {
         Object left = node.left.accept(this);
         Object right = node.right.accept(this);
 
-        if (left instanceof Integer && right instanceof Integer) {
-            int l = (Integer) left;
-            int r = (Integer) right;
+        if (left instanceof Boolean && right instanceof Boolean) {
+            boolean l = (Boolean) left;
+            boolean r = (Boolean) right;
+            switch (node.operator) {
+                case "==": return l == r;
+                case "!=": return l != r;
+                default: throw new RuntimeException("Invalid operator for boolean values: " + node.operator);
+            }
+        }
+        // Обработка конкатенации массивов
+        if (node.operator.equals("+")) {
+            if (left instanceof List && right instanceof List) {
+                List<Object> result = new ArrayList<>();
+                result.addAll((List<?>) left);
+                result.addAll((List<?>) right);
+                return result;
+            }
+            // Добавляем обработку случая, когда один из операндов - массив
+            if (left instanceof List) {
+                List<Object> result = new ArrayList<>();
+                result.addAll((List<?>) left);
+                if (right instanceof Object[]) {
+                    result.addAll(Arrays.asList((Object[]) right));
+                } else {
+                    result.add(right);
+                }
+                return result;
+            }
+            if (right instanceof List) {
+                List<Object> result = new ArrayList<>();
+                if (left instanceof Object[]) {
+                    result.addAll(Arrays.asList((Object[]) left));
+                } else {
+                    result.add(left);
+                }
+                result.addAll((List<?>) right);
+                return result;
+            }
+        }
+
+        // Существующая обработка числовых операций
+        if (left instanceof Long && right instanceof Long) {
+            long l = (Long) left;
+            long r = (Long) right;
 
             switch (node.operator) {
-                case "+":
-                    return l + r;
-                case "-":
-                    return l - r;
-                case "*":
-                    return l * r;
-                case "/":
-                    return l / r;
-                case "==":
-                    return l == r;
-                case "!=":
-                    return l != r;
-                case "<":
-                    return l < r;
-                case "<=":
-                    return l <= r;
-                case ">":
-                    return l > r;
-                case ">=":
-                    return l >= r;
-                default:
-                    throw new RuntimeException("Unknown operator: " + node.operator);
+                case "+": return l + r;
+                case "-": return l - r;
+                case "*": return l * r;
+                case "/": return l / r;
+                case "==": return l == r;
+                case "!=": return l != r;
+                case "<": return l < r;
+                case "<=": return l <= r;
+                case ">": return l > r;
+                case ">=": return l >= r;
+                default: throw new RuntimeException("Unknown operator: " + node.operator);
             }
-        } else {
-            throw new RuntimeException("Operands must be integers");
         }
+        throw new RuntimeException("Operands must be longs or arrays");
     }
 
     @Override
@@ -180,42 +238,69 @@ public class Interpreter implements ASTVisitor<Object> {
 
     @Override
     public Object visit(ArrayAccess node) {
-        Object arrayObject = node.array.accept(this);
-        Object indexObject = node.index.accept(this);
-        if (arrayObject instanceof List && indexObject instanceof Integer) {
-            List<Object> array = (List<Object>) arrayObject;
-            int index = (Integer) indexObject;
-            if (index < 0 || index >= array.size()) {
-                throw new RuntimeException("Array index out of bounds");
-            }
-            return array.get(index);
-        } else {
-            throw new RuntimeException("Invalid array access");
+        Object array = node.array.accept(this);
+        Object index = node.index.accept(this);
+
+        if (!(array instanceof List)) {
+            throw new RuntimeException("Cannot access non-array type");
         }
+
+        List<Object> list = (List<Object>) array;
+        int idx;
+
+        if (index instanceof Long) {
+            idx = ((Long) index).intValue();
+        } else if (index instanceof Integer) {
+            idx = (Integer) index;
+        } else {
+            throw new RuntimeException("Array index must be a number");
+        }
+
+        if (idx < 0 || idx >= list.size()) {
+            throw new RuntimeException("Array index out of bounds");
+        }
+
+        return list.get(idx);
     }
 
     @Override
     public Object visit(ArrayAssignment node) {
-        Object arrayObject = node.array.accept(this);
-        Object indexObject = node.index.accept(this);
+        Object array = node.array.accept(this);
+        Object index = node.index.accept(this);
         Object value = node.value.accept(this);
-        if (arrayObject instanceof List && indexObject instanceof Integer) {
-            List<Object> array = (List<Object>) arrayObject;
-            int index = (Integer) indexObject;
-            if (index < 0 || index >= array.size()) {
-                throw new RuntimeException("Array index out of bounds");
-            }
-            array.set(index, value);
-            return null;
-        } else {
-            throw new RuntimeException("Invalid array assignment");
+
+        if (!(array instanceof List)) {
+            throw new RuntimeException("Cannot assign to non-array type");
         }
+
+        List<Object> list = (List<Object>) array;
+        int idx;
+
+        if (index instanceof Long) {
+            idx = ((Long) index).intValue();
+        } else if (index instanceof Integer) {
+            idx = (Integer) index;
+        } else {
+            throw new RuntimeException("Array index must be a number");
+        }
+
+        if (idx < 0) {
+            throw new RuntimeException("Array index cannot be negative");
+        }
+
+        // Расширяем массив при необходимости
+        while (list.size() <= idx) {
+            list.add(null);
+        }
+
+        list.set(idx, value);
+        return null;
     }
 
     private boolean isTruthy(Object value) {
         if (value == null) return false;
         if (value instanceof Boolean) return (Boolean) value;
-        if (value instanceof Integer) return (Integer) value != 0;
+        if (value instanceof Integer || value instanceof Long) return (Long) value != 0;
         return true;
     }
 }
