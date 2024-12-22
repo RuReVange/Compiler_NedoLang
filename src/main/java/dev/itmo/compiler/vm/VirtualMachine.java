@@ -353,7 +353,6 @@ public class VirtualMachine {
         }
     }
 
-
     @FunctionalInterface
     public interface NativeFunction {
         Object call(VirtualMachine vm, List<Object> args);

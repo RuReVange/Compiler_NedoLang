@@ -42,8 +42,8 @@ public class Instruction implements Serializable {
     }
 
     public OpCode opCode;
-    public Object operand; // Может быть null
-    public Object operand2; // Второй операнд, если нужен
+    public Object operand;
+    public Object operand2;
 
     public Instruction(OpCode opCode) {
         this.opCode = opCode;

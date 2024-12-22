@@ -196,7 +196,6 @@ public class Compiler implements ASTVisitor<Void> {
         return null;
     }
 
-
     private boolean isLabelOperand(Instruction instr) {
         switch (instr.opCode) {
             case JUMP_FORWARD:

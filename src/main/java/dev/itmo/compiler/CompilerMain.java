@@ -17,7 +17,7 @@ import java.util.List;
 public class CompilerMain {
     public static void main(String[] args) {
         try {
-            String code = new String(Files.readAllBytes(Paths.get("src/main/resources/primes.nedolang")));
+            String code = new String(Files.readAllBytes(Paths.get("src/main/resources/sort.nedolang")));
             Lexer lexer = new Lexer(code);
             List<Token> tokens = lexer.tokenize();
             Parser parser = new Parser(tokens);
@@ -30,7 +30,7 @@ public class CompilerMain {
 
             Compiler compiler = new Compiler();
             Bytecode bytecode = compiler.compile(nodes);
-            bytecode.serialize("factorialByteCode.nedolang");
+//            bytecode.serialize("factorialByteCode.nedolang");
 
 //            Bytecode bytecode = new Bytecode().deserialize("factorialByteCode.nedolang");
             VirtualMachine vm = new VirtualMachine(bytecode);
