@@ -211,24 +211,50 @@ public class Compiler implements ASTVisitor<Void> {
         return name.equals("print") || name.equals("length") || name.equals("push") || name.equals("randomInt");
     }
 
+//    @Override
+//    public Void visit(IfStatement node) {
+//        node.condition.accept(this);
+//        String elseLabel = newLabel();
+//        String endLabel = newLabel();
+//
+//        addInstruction(new Instruction(Instruction.OpCode.POP_JUMP_IF_FALSE, elseLabel));
+//        node.thenBranch.accept(this);
+//        addInstruction(new Instruction(Instruction.OpCode.JUMP_FORWARD, endLabel));
+//
+//        // Метка else
+//        markLabel(elseLabel);
+//        if (node.elseBranch != null) {
+//            node.elseBranch.accept(this);
+//        }
+//
+//        // Метка конца if
+//        markLabel(endLabel);
+//        return null;
+//    }
     @Override
     public Void visit(IfStatement node) {
         node.condition.accept(this);
         String elseLabel = newLabel();
         String endLabel = newLabel();
 
+        // Добавляем прыжок к else-ветке если условие ложное
         addInstruction(new Instruction(Instruction.OpCode.POP_JUMP_IF_FALSE, elseLabel));
-        node.thenBranch.accept(this);
-        addInstruction(new Instruction(Instruction.OpCode.JUMP_FORWARD, endLabel));
 
-        // Метка else
+        // Компилируем then-ветку
+        node.thenBranch.accept(this);
+
+        // Прыжок через else-ветку
+        addInstruction(new Instruction(Instruction.OpCode.JUMP_ABSOLUTE, endLabel));
+
+        // Метка начала else
         markLabel(elseLabel);
         if (node.elseBranch != null) {
             node.elseBranch.accept(this);
         }
 
-        // Метка конца if
+        // Метка конца всего if-statement
         markLabel(endLabel);
+
         return null;
     }
 

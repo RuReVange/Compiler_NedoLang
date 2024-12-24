@@ -11,21 +11,42 @@ function generateArray(size) {
 function quickSort(arr) {
     if (length(arr) <= 1) {
         return arr;
-    } else {
-        var pivot = arr[0];
-        var less = [];
-        var greater = [];
-        var i = 1;
-        while (i < length(arr)) {
-            if (arr[i] <= pivot) {
-                push(less, arr[i]);
-            } else {
-                push(greater, arr[i]);
-            }
-            i = i + 1;
-        }
-        return quickSort(less) + [pivot] + quickSort(greater);
     }
+
+    var pivot = arr[0];
+    var less = [];
+    var greater = [];
+    var i = 1;
+
+    while (i < length(arr)) {
+        if (arr[i] <= pivot) {
+            push(less, arr[i]);
+        } else {
+            push(greater, arr[i]);
+        }
+        i = i + 1;
+    }
+
+    var sortedLess = quickSort(less);
+    var sortedGreater = quickSort(greater);
+
+    var result = [];
+
+    i = 0;
+    while (i < length(sortedLess)) {
+        push(result, sortedLess[i]);
+        i = i + 1;
+    }
+
+    push(result, pivot);
+
+    i = 0;
+    while (i < length(sortedGreater)) {
+        push(result, sortedGreater[i]);
+        i = i + 1;
+    }
+
+    return result;
 }
 
 var arr = generateArray(10000);

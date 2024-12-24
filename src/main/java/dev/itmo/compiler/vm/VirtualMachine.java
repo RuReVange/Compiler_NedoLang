@@ -1,10 +1,13 @@
 package dev.itmo.compiler.vm;
 
+import dev.itmo.compiler.memory.RcList;
+import dev.itmo.compiler.memory.RcObject;
 import dev.itmo.compiler.vm.bytecode.Bytecode;
 import dev.itmo.compiler.vm.bytecode.FunctionObject;
 import dev.itmo.compiler.vm.bytecode.Instruction;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class VirtualMachine {
     private final List<Instruction> instructions;
@@ -12,54 +15,47 @@ public class VirtualMachine {
     private final Stack<Object> stack = new Stack<>();
     private final Map<String, Object> globals = new HashMap<>();
     private final Stack<Frame> frames = new Stack<>();
-    private int ip = 0; // Instruction pointer
+    private int ip = 0;
 
     public VirtualMachine(Bytecode bytecode) {
         this.instructions = bytecode.getInstructions();
         this.functionTable = bytecode.getFunctionTable();
-
-        // Инициализируем фрейм глобального контекста
+        // "глобальный" фрейм
         frames.push(new Frame(-1, new HashMap<>()));
-
-        // Инициализируем встроенные функции
-        initializeBuiltInFunctions();
-        initializeGlobalVariables();
+        initBuiltins();
     }
 
-    private void initializeBuiltInFunctions() {
+    /** Объявляем встроенные функции */
+    private void initBuiltins() {
         globals.put("print", (NativeFunction) (vm, args) -> {
             for (Object arg : args) {
                 System.out.println(arg);
             }
             return null;
         });
-
         globals.put("length", (NativeFunction) (vm, args) -> {
-            if (args.size() != 1 || !(args.get(0) instanceof List)) {
-                throw new RuntimeException("length() expects one array argument");
+            if (args.size()!=1 || !(args.get(0) instanceof RcList)) {
+                throw new RuntimeException("length() expects 1 list argument");
             }
-            return (long) ((List<?>) args.get(0)).size();
+            return (long)((RcList)args.get(0)).size();
         });
-
         globals.put("push", (NativeFunction) (vm, args) -> {
-            if (args.size() != 2 || !(args.get(0) instanceof List)) {
-                throw new RuntimeException("push() expects array and value arguments");
+            if (args.size()!=2 || !(args.get(0) instanceof RcList)) {
+                throw new RuntimeException("push expects (list, value)");
             }
-            ((List<Object>) args.get(0)).add(args.get(1));
+            RcList lst = (RcList) args.get(0);
+            Object val = args.get(1);
+            lst.add(val);
             return null;
         });
-
         globals.put("randomInt", (NativeFunction) (vm, args) -> {
-            if (args.size() != 2 || !(args.get(0) instanceof Long) || !(args.get(1) instanceof Long)) {
-                throw new RuntimeException("randomInt() expects two integer arguments");
+            if(args.size()!=2) {
+                throw new RuntimeException("randomInt(min, max)");
             }
-            long min = (Long) args.get(0);
-            long max = (Long) args.get(1);
-            return min + (long) (Math.random() * ((max - min) + 1));
+            long min = (long)args.get(0);
+            long max = (long)args.get(1);
+            return min + (long)(Math.random()*(max-min+1));
         });
-    }
-
-    private void initializeGlobalVariables() {
         globals.put("true", true);
         globals.put("false", false);
     }
@@ -67,294 +63,423 @@ public class VirtualMachine {
     public void run() {
         while (ip < instructions.size()) {
             Instruction instr = instructions.get(ip);
-            execute(instr);
-            ip++;
+//            System.out.println(instr);
+            try {
+                execute(instr);
+            } catch (Exception e) {
+                System.err.println("Error executing instruction: " + e.getMessage());
+                e.printStackTrace();
+                break;
+            }
+//            AtomicInteger counter = new AtomicInteger(0);
+//            System.out.println("Stack: " + stack.stream()
+//                    .takeWhile(e -> counter.incrementAndGet() < 7)
+//                    .toList());
+//            System.out.println("Frames: " + frames);
+//            System.out.println("IP: " + ip);
         }
+        System.out.println("Program finished");
     }
 
     private void execute(Instruction instr) {
-        switch (instr.opCode) {
-            case LOAD_CONST:
-                stack.push(instr.operand);
+        switch(instr.opCode) {
+            case LOAD_CONST: {
+                push(instr.operand);
+                ip++;
                 break;
+            }
             case LOAD_NAME: {
-                String name = (String) instr.operand;
-                Object value = loadName(name);
-                stack.push(value);
+                String name = (String)instr.operand;
+                Object val = loadName(name);
+                if(val==null){
+                    throw new RuntimeException("Name '"+name+"' not defined");
+                }
+                push(val);
+                ip++;
+                break;
             }
-            break;
             case STORE_NAME: {
-                String name = (String) instr.operand;
-                Object value = stack.pop();
+                String name = (String)instr.operand;
+                Object value = pop(); // pop -> decRef
                 storeName(name, value);
+                ip++;
+                break;
             }
-            break;
+//            case BINARY_ADD: {
+//                Object b = pop();
+//                Object a = pop();
+//                if(a instanceof Long && b instanceof Long){
+//                    push((Long)a + (Long)b);
+//                } else if(a instanceof String || b instanceof String){
+//                    push(String.valueOf(a) + String.valueOf(b));
+//                } else if(a instanceof RcList && b instanceof RcList){
+//                    RcList la = (RcList)a;
+//                    RcList lb = (RcList)b;
+//                    RcList result = new RcList();
+//                    for(Object it: la.getItems()) result.add(it);
+//                    for(Object it: lb.getItems()) result.add(it);
+//                    push(result);
+//                } else {
+//                    throw new RuntimeException("Unsupported types for +");
+//                }
+//                ip++;
+//                break;
+//            }
+//            case BINARY_ADD: {
+//                Object b = pop();
+//                Object a = pop();
+//                if(a instanceof Long && b instanceof Long) {
+//                    push((Long)a + (Long)b);
+//                } else if(a instanceof String || b instanceof String) {
+//                    push(String.valueOf(a) + String.valueOf(b));
+//                } else if((a instanceof RcList || a instanceof List) &&
+//                        (b instanceof RcList || b instanceof List)) {
+//                    // Создаем новый RcList
+//                    RcList result = new RcList();
+//
+//                    // Добавляем элементы из первого списка
+//                    List<?> la = (a instanceof RcList) ? ((RcList)a).getItems() : (List<?>)a;
+//                    for(Object it: la) {
+//                        if(it instanceof RcObject) {
+//                            ((RcObject)it).incRef(); // Увеличиваем счетчик ссылок
+//                        }
+//                        result.add(it);
+//                    }
+//
+//                    // Добавляем элементы из второго списка
+//                    List<?> lb = (b instanceof RcList) ? ((RcList)b).getItems() : (List<?>)b;
+//                    for(Object it: lb) {
+//                        if(it instanceof RcObject) {
+//                            ((RcObject)it).incRef(); // Увеличиваем счетчик ссылок
+//                        }
+//                        result.add(it);
+//                    }
+//
+//                    push(result);
+//                } else {
+//                    throw new RuntimeException("Unsupported types for +: " +
+//                            a.getClass() + " and " + b.getClass());
+//                }
+//                ip++;
+//                break;
+//            }
             case BINARY_ADD: {
-                Object b = stack.pop();
-                Object a = stack.pop();
-                if (a instanceof Long && b instanceof Long) {
-                    stack.push((Long) a + (Long) b);
-                } else if (a instanceof List && b instanceof List) {
-                    List<Object> result = new ArrayList<>((List<Object>) a);
-                    result.addAll((List<Object>) b);
-                    stack.push(result);
+                Object b = pop();
+                Object a = pop();
+//                System.out.println("BINARY_ADD:");
+//                System.out.println("a = " + a);
+//                System.out.println("b = " + b);
+
+                if(a instanceof Long && b instanceof Long) {
+                    push((Long)a + (Long)b);
+                } else if(a instanceof String || b instanceof String) {
+                    push(String.valueOf(a) + String.valueOf(b));
+                } else if((a instanceof RcList || a instanceof List) &&
+                        (b instanceof RcList || b instanceof List)) {
+                    RcList result = new RcList();
+
+                    // Преобразуем входные данные в List
+                    List<?> listA = (a instanceof RcList) ? ((RcList)a).getItems() : (List<?>)a;
+                    List<?> listB = (b instanceof RcList) ? ((RcList)b).getItems() : (List<?>)b;
+
+//                    System.out.println("Concatenating lists:");
+//                    System.out.println("List A: " + listA);
+//                    System.out.println("List B: " + listB);
+
+                    // Добавляем элементы из первого списка
+                    for(Object item : listA) {
+                        result.add(item);
+                    }
+
+                    // Добавляем элементы из второго списка
+                    for(Object item : listB) {
+                        result.add(item);
+                    }
+
+                    System.out.println("Result: " + result.getItems());
+                    push(result);
                 } else {
-                    throw new RuntimeException("Unsupported types for addition");
+                    throw new RuntimeException("Unsupported types for +: " +
+                            (a != null ? a.getClass() : "null") + " and " +
+                            (b != null ? b.getClass() : "null"));
                 }
+                ip++;
+                break;
             }
-            break;
             case BINARY_SUBTRACT: {
-                Object b = stack.pop();
-                Object a = stack.pop();
-                stack.push((Long) a - (Long) b);
+                Object b = pop();
+                Object a = pop();
+                push((Long)a - (Long)b);
+                ip++;
+                break;
             }
-            break;
             case BINARY_MULTIPLY: {
-                Object b = stack.pop();
-                Object a = stack.pop();
-                stack.push((Long) a * (Long) b);
+                Object b = pop();
+                Object a = pop();
+                push((Long)a * (Long)b);
+                ip++;
+                break;
             }
-            break;
             case BINARY_DIVIDE: {
-                Object b = stack.pop();
-                Object a = stack.pop();
-                stack.push((Long) a / (Long) b);
+                Object b = pop();
+                Object a = pop();
+                push((Long)a / (Long)b);
+                ip++;
+                break;
             }
-            break;
             case BINARY_MODULO: {
-                Object b = stack.pop();
-                Object a = stack.pop();
-                stack.push((Long) a % (Long) b);
+                Object b = pop();
+                Object a = pop();
+                push((Long)a % (Long)b);
+                ip++;
+                break;
             }
-            break;
             case COMPARE_OP: {
-                String op = (String) instr.operand;
-                Object b = stack.pop();
-                Object a = stack.pop();
-                boolean result;
-                switch (op) {
-                    case "==":
-                        result = a.equals(b);
-                        break;
-                    case "!=":
-                        result = !a.equals(b);
-                        break;
-                    case "<":
-                        result = ((Long) a) < ((Long) b);
-                        break;
-                    case ">":
-                        result = ((Long) a) > ((Long) b);
-                        break;
-                    case "<=":
-                        result = ((Long) a) <= ((Long) b);
-                        break;
-                    case ">=":
-                        result = ((Long) a) >= ((Long) b);
-                        break;
-                    default:
-                        throw new RuntimeException("Unknown comparison operator: " + op);
+                String op = (String)instr.operand;
+                Object b = pop();
+                Object a = pop();
+                boolean r;
+                switch(op) {
+                    case "==": r = Objects.equals(a,b); break;
+                    case "!=": r = !Objects.equals(a,b); break;
+                    case "<":  r = ((Long)a)<((Long)b);  break;
+                    case "<=": r = ((Long)a)<=((Long)b); break;
+                    case ">":  r = ((Long)a)>((Long)b);  break;
+                    case ">=": r = ((Long)a)>=((Long)b); break;
+                    default: throw new RuntimeException("Unknown compare op: " + op);
                 }
-                stack.push(result);
+                push(r);
+                ip++;
+                break;
             }
-            break;
             case POP_JUMP_IF_FALSE: {
-                Object value = stack.pop();
-                if (value instanceof Boolean && !(Boolean) value) {
-                    ip = (Integer) instr.operand - 1;
+                Object condition = pop();
+                if (condition instanceof Boolean && !(Boolean) condition) {
+                    ip = (Integer) instr.operand;
+                } else {
+                    ip++;
                 }
+                break;
             }
-            break;
             case JUMP_FORWARD: {
-                ip = (Integer) instr.operand - 1;
+                ip += (Integer) instr.operand;
+                break;
             }
-            break;
+
             case JUMP_ABSOLUTE: {
-                ip = (Integer) instr.operand - 1;
+                ip = (Integer) instr.operand;
+                break;
             }
-            break;
-            case CALL_FUNCTION:
-            {
-                String functionName = (String) instr.operand;
-                int argCount = (Integer) instr.operand2;
-
-                FunctionObject function = functionTable.get(functionName);
-                if (function == null) {
-                    throw new RuntimeException("Undefined function: " + functionName);
+            case CALL_FUNCTION: {
+                String funcName = (String)instr.operand;
+                int argCount = (int)instr.operand2;
+                FunctionObject fn = functionTable.get(funcName);
+                if(fn == null){
+                    throw new RuntimeException("Undefined function: "+funcName);
                 }
-
-                if (argCount != function.parameters.size()) {
-                    throw new RuntimeException("Function " + functionName + " expects " + function.parameters.size() + " arguments, got " + argCount);
+                if(argCount != fn.parameters.size()){
+                    throw new RuntimeException("Argument count mismatch for function "+funcName);
                 }
-
-                // Извлекаем аргументы со стека
                 List<Object> args = new ArrayList<>();
-                for (int i = 0; i < argCount; i++) {
-                    args.add(0, stack.pop()); // Добавляем в начало списка
+                for(int i=0; i<argCount; i++) {
+                    Object ar = pop();
+                    if(ar instanceof RcObject) {
+                        ((RcObject)ar).incRef();
+                    }
+                    args.add(0, ar);
                 }
-
-                // Сопоставляем аргументы с параметрами
-                Map<String, Object> newLocals = new HashMap<>();
-                for (int i = 0; i < argCount; i++) {
-                    String paramName = function.parameters.get(i);
-                    Object argValue = args.get(i);
-                    newLocals.put(paramName, argValue);
+                Map<String,Object> newLocals = new HashMap<>();
+                for(int i=0;i<argCount;i++){
+                    newLocals.put(fn.parameters.get(i), args.get(i));
                 }
-
-                // Сохраняем текущий IP и создаём новый фрейм
-                int returnAddress = ip;
+                int returnAddress = ip+1;
                 frames.push(new Frame(returnAddress, newLocals));
-
-                // Переходим к адресу функции
-                ip = function.address - 1;
+                ip = fn.address;
+                break;
             }
-            break;
             case CALL_NATIVE: {
-                String functionName = (String) instr.operand;
-                NativeFunction function = (NativeFunction) globals.get(functionName);
-                if (function == null) {
-                    throw new RuntimeException("Unknown native function: " + functionName);
+                String funcName = (String)instr.operand;
+                int argCount = (Integer)instr.operand2;
+                Object nativeF = globals.get(funcName);
+                if(!(nativeF instanceof NativeFunction)){
+                    throw new RuntimeException("Unknown native function: "+funcName);
                 }
+                NativeFunction nf = (NativeFunction)nativeF;
                 List<Object> args = new ArrayList<>();
-                // Получаем количество аргументов функции
-                int argCount = getArgumentCount(functionName);
-                for (int i = 0; i < argCount; i++) {
-                    args.add(0, stack.pop());
+                for(int i=0;i<argCount;i++){
+                    Object ar = pop();
+                    if(ar instanceof RcObject){
+                        ((RcObject)ar).incRef();
+                    }
+                    args.add(0,ar);
                 }
-                Object result = function.call(this, args);
-                if (result != null) {
-                    stack.push(result);
+                Object res = nf.call(this, args);
+                if(res!=null){
+                    push(res);
                 }
+                ip++;
+                break;
             }
-            break;
-            case RETURN_VALUE:
-            {
-                Object returnValue = stack.pop();
-                Frame currentFrame = frames.pop();
+//            case RETURN_VALUE: {
+//                Object returnVal = pop();
+//                Frame fr = frames.pop();
+//                for (Object v : fr.locals.values()) {
+//                    if (v instanceof RcObject) {
+//                        ((RcObject) v).decRef();
+//                    }
+//                }
+////                if (frames.isEmpty()) {
+////                    ip = instructions.size();
+////                } else {
+////                    ip = fr.returnAddress;
+////                    if (returnVal instanceof RcObject) {
+////                        ((RcObject) returnVal).incRef();
+////                    }
+////                    push(returnVal);
+////                }
+//                if (frames.isEmpty()) {
+//                    ip = instructions.size();
+//                } else {
+//                    ip = fr.returnAddress;
+//                    push(returnVal); // push сам увеличит счетчик если нужно
+//                }
+//                break;
+//            }
+            case RETURN_VALUE: {
+                Object returnVal = pop();
+                Frame fr = frames.pop();
+
+                // Не уменьшаем счетчик ссылок для возвращаемого значения
+                for (Map.Entry<String, Object> entry : fr.locals.entrySet()) {
+                    Object v = entry.getValue();
+                    if (v instanceof RcObject && v != returnVal) {  // Добавлена проверка
+                        ((RcObject) v).decRef();
+                    }
+                }
+
                 if (frames.isEmpty()) {
-                    // Программа завершила работу
                     ip = instructions.size();
                 } else {
-                    ip = currentFrame.returnAddress;
-
-
-                    stack.push(returnValue);
+                    ip = fr.returnAddress;
+                    push(returnVal);
                 }
-            }
-            break;
-            case BUILD_LIST: {
-                int count = (Integer) instr.operand;
-                List<Object> list = new ArrayList<>();
-                for (int i = 0; i < count; i++) {
-                    list.add(0, stack.pop());
-                }
-                stack.push(list);
-            }
-            break;
-            case SUBSCR_LOAD: {
-                Object index = stack.pop();
-                Object list = stack.pop();
-                if (!(list instanceof List)) {
-                    throw new RuntimeException("SUBSCR_LOAD expects list");
-                }
-                if (!(index instanceof Long)) {
-                    throw new RuntimeException("SUBSCR_LOAD expects integer index");
-                }
-                List<Object> array = (List<Object>) list;
-                int idx = ((Long) index).intValue();
-                stack.push(array.get(idx));
-            }
-            break;
-            case SUBSCR_STORE: {
-                Object value = stack.pop();
-                Object index = stack.pop();
-                Object list = stack.pop();
-                if (!(list instanceof List)) {
-                    throw new RuntimeException("SUBSCR_STORE expects list");
-                }
-                if (!(index instanceof Long)) {
-                    throw new RuntimeException("SUBSCR_STORE expects integer index");
-                }
-                List<Object> array = (List<Object>) list;
-                int idx = ((Long) index).intValue();
-                // Расширяем массив при необходимости
-                while (array.size() <= idx) {
-                    array.add(null);
-                }
-                array.set(idx, value);
-            }
-            break;
-            case PRINT:
-                System.out.println(stack.pop());
                 break;
+            }
+//            case BUILD_LIST: {
+//                int count = (Integer)instr.operand;
+//                RcList list = new RcList();
+//                for(int i=0;i<count;i++){
+//                    Object v = pop(); // pop->decRef
+//                    list.addToFront(v);
+//                }
+//                // push -> incRef(list)
+//                push(list);
+//                ip++;
+//                break;
+//            }
+            case BUILD_LIST: {
+                int count = (Integer)instr.operand;
+                RcList list = new RcList();
+                for(int i=0;i<count;i++){
+                    Object v = pop();
+                    list.addToFront(v); // Достаточно одного увеличения счетчика здесь
+                }
+                push(list);
+                ip++;
+                break;
+            }
+            case SUBSCR_LOAD: {
+                Object idx = pop();
+                Object arr = pop();
+                if(!(arr instanceof RcList)){
+                    throw new RuntimeException("subscr_load expects a list");
+                }
+                int i = (int)(long)(Long)idx;
+                RcList rlist = (RcList)arr;
+                Object val = rlist.get(i);
+                push(val);
+                ip++;
+                break;
+            }
+//            case SUBSCR_STORE: {
+//                // на стеке: array, index, value
+//                Object value = pop();
+//                Object indexObj = pop();
+//                Object arrayObj = pop();
+//                if(!(arrayObj instanceof RcList)){
+//                    throw new RuntimeException("subscr_store on non-list");
+//                }
+//                int i = (int)(long)(Long)indexObj;
+//                ((RcList)arrayObj).set(i, value);
+//                ip++;
+//                break;
+//            }
+            case SUBSCR_STORE: {
+                Object value = pop();
+                Object indexObj = pop();
+                Object arrayObj = pop();
+                if(!(arrayObj instanceof RcList)){
+                    throw new RuntimeException("subscr_store on non-list");
+                }
+                RcList list = (RcList)arrayObj;
+                int i = (int)(long)(Long)indexObj;
+
+                // Расширяем список если нужно
+                while (list.size() <= i) {
+                    list.add(null);
+                }
+
+                list.set(i, value);
+                ip++;
+                break;
+            }
+            case PRINT: {
+                // Если вы решили, что print-оператор — отдельный опкод
+                Object val = pop();
+                System.out.println(val);
+                ip++;
+                break;
+            }
             default:
-                throw new RuntimeException("Unknown opcode: " + instr.opCode);
+                throw new RuntimeException("Unknown opcode: "+instr.opCode);
         }
     }
 
-    private Object getFunctionAddress(String functionName) {
-        for (int i = 0; i < instructions.size(); i++) {
-            Instruction instr = instructions.get(i);
-            if (instr.opCode == Instruction.OpCode.LOAD_CONST && functionName.equals(instr.operand)) {
-                return i + 1;
-            }
-            if (instr.opCode == Instruction.OpCode.STORE_NAME && functionName.equals(instr.operand)) {
-                return i + 1;
-            }
-            if (instr.opCode == Instruction.OpCode.LOAD_NAME && functionName.equals(instr.operand)) {
-                return i + 1;
+    private Object loadName(String name){
+        // Ищем в локальных фреймах (от верхнего к нижнему)
+        for(int i=frames.size()-1; i>=0; i--){
+            Frame f = frames.get(i);
+            if(f.locals.containsKey(name)){
+                return f.locals.get(name);
             }
         }
-        return null;
+        // потом глобальные
+        return globals.get(name);
     }
 
-    private int getArgumentCount(String functionName) {
-        // Для упрощения возвращаем фиксированное количество аргументов для встроенных функций
-        switch (functionName) {
-            case "print":
-                return 1;
-            case "length":
-                return 1;
-            case "push":
-                return 2;
-            case "randomInt":
-                return 2;
-            default:
-                return 0; // Для пользовательских функций аргументы уже на стеке
+    private void storeName(String name, Object value){
+        Frame topFrame = frames.peek();
+        Object oldVal = topFrame.locals.put(name, value);
+        if(oldVal instanceof RcObject){
+            ((RcObject)oldVal).decRef();
+        }
+        if(value instanceof RcObject){
+            ((RcObject)value).incRef();
         }
     }
 
-    private Object loadName(String name) {
-        // Ищем переменную в текущем фрейме
-        for (int i = frames.size() - 1; i >= 0; i--) {
-            Frame frame = frames.get(i);
-            if (frame.locals.containsKey(name)) {
-                return frame.locals.get(name);
-            }
+    private void push(Object obj){
+        if(obj instanceof RcObject){
+            ((RcObject)obj).incRef();
         }
-        // Если не найдена, ищем в глобалах
-        if (globals.containsKey(name)) {
-            return globals.get(name);
-        }
-        throw new RuntimeException("Name '" + name + "' is not defined");
+        stack.push(obj);
     }
 
-    private void storeName(String name, Object value) {
-        // Сохраняем переменную в текущем фрейме
-        frames.peek().locals.put(name, value);
-    }
-
-    private static class Frame {
-        Map<String, Object> locals;
-        int returnAddress;
-
-        Frame(int returnAddress, Map<String, Object> locals) {
-            this.returnAddress = returnAddress;
-            this.locals = locals;
+    private Object pop(){
+        Object top = stack.pop();
+        if(top instanceof RcObject){
+            ((RcObject)top).decRef();
         }
-    }
-
-    @FunctionalInterface
-    public interface NativeFunction {
-        Object call(VirtualMachine vm, List<Object> args);
+        return top;
     }
 }

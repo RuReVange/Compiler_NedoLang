@@ -32,7 +32,7 @@ public class CompilerMain {
             Bytecode bytecode = compiler.compile(nodes);
 //            bytecode.serialize("factorialByteCode.nedolang");
 
-//            Bytecode bytecode = new Bytecode().deserialize("factorialByteCode.nedolang");
+//            Bytecode bytecode = Bytecode.deserialize("/Users/ioannboltonov/IdeaProjects/Compiler/src/main/resources/factorialByteCode.nedolang");
             VirtualMachine vm = new VirtualMachine(bytecode);
             vm.run();
 
