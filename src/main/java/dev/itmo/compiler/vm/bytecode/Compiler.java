@@ -21,23 +21,18 @@ public class Compiler implements ASTVisitor<Void> {
 
 
     public Bytecode compile(List<ASTNode> nodes) {
-        // Создаем метку для начала главного кода
         String mainLabel = newLabel();
 
-        // Вставляем JUMP_FORWARD в начало байткода
         addInstruction(new Instruction(Instruction.OpCode.JUMP_FORWARD, mainLabel));
 
-        // Скомпилируем все узлы (функции и главный код)
         for (ASTNode node : nodes) {
             if (node instanceof FunctionDeclaration) {
                 node.accept(this);
             }
         }
 
-        // Помечаем начало главного кода
         markLabel(mainLabel);
 
-        // Компилируем главный код
         for (ASTNode node : nodes) {
             if (!(node instanceof FunctionDeclaration)) {
                 node.accept(this);
@@ -46,7 +41,6 @@ public class Compiler implements ASTVisitor<Void> {
 
         resolveLabels();
 
-        // Обновляем адреса функций после разрешения меток
         for (FunctionObject function : functionTable.values()) {
             function.address = labels.get(function.name);
             bytecode.addFunction(function);
@@ -57,11 +51,6 @@ public class Compiler implements ASTVisitor<Void> {
 
     private void addInstruction(Instruction instr) {
         bytecode.addInstruction(instr);
-        currentPosition++;
-    }
-
-    private void addInstructionAt(int index, Instruction instr) {
-        bytecode.addInstructionAt(index, instr);
         currentPosition++;
     }
 
@@ -166,13 +155,11 @@ public class Compiler implements ASTVisitor<Void> {
         String functionLabel = node.name;
         markLabel(functionLabel);
 
-        // Создаём объект функции и сохраняем его в таблице функций
         FunctionObject function = new FunctionObject(node.name, currentPosition, node.parameters);
         functionTable.put(node.name, function);
 
         node.body.accept(this);
 
-        // Если функция не заканчивается RETURN_VALUE, добавляем его
         if (bytecode.getInstructions().get(currentPosition - 1).opCode != Instruction.OpCode.RETURN_VALUE) {
             addInstruction(new Instruction(Instruction.OpCode.LOAD_CONST, null));
             addInstruction(new Instruction(Instruction.OpCode.RETURN_VALUE));
@@ -183,7 +170,6 @@ public class Compiler implements ASTVisitor<Void> {
 
     @Override
     public Void visit(FunctionCallExpression node) {
-        // Компилируем аргументы
         for (ASTNode arg : node.arguments) {
             arg.accept(this);
         }
@@ -196,63 +182,27 @@ public class Compiler implements ASTVisitor<Void> {
         return null;
     }
 
-    private boolean isLabelOperand(Instruction instr) {
-        switch (instr.opCode) {
-            case JUMP_FORWARD:
-            case JUMP_ABSOLUTE:
-            case POP_JUMP_IF_FALSE:
-                return true;
-            default:
-                return false;
-        }
-    }
-
     private boolean isNativeFunction(String name) {
         return name.equals("print") || name.equals("length") || name.equals("push") || name.equals("randomInt");
     }
 
-//    @Override
-//    public Void visit(IfStatement node) {
-//        node.condition.accept(this);
-//        String elseLabel = newLabel();
-//        String endLabel = newLabel();
-//
-//        addInstruction(new Instruction(Instruction.OpCode.POP_JUMP_IF_FALSE, elseLabel));
-//        node.thenBranch.accept(this);
-//        addInstruction(new Instruction(Instruction.OpCode.JUMP_FORWARD, endLabel));
-//
-//        // Метка else
-//        markLabel(elseLabel);
-//        if (node.elseBranch != null) {
-//            node.elseBranch.accept(this);
-//        }
-//
-//        // Метка конца if
-//        markLabel(endLabel);
-//        return null;
-//    }
     @Override
     public Void visit(IfStatement node) {
         node.condition.accept(this);
         String elseLabel = newLabel();
         String endLabel = newLabel();
 
-        // Добавляем прыжок к else-ветке если условие ложное
         addInstruction(new Instruction(Instruction.OpCode.POP_JUMP_IF_FALSE, elseLabel));
 
-        // Компилируем then-ветку
         node.thenBranch.accept(this);
 
-        // Прыжок через else-ветку
         addInstruction(new Instruction(Instruction.OpCode.JUMP_ABSOLUTE, endLabel));
 
-        // Метка начала else
         markLabel(elseLabel);
         if (node.elseBranch != null) {
             node.elseBranch.accept(this);
         }
 
-        // Метка конца всего if-statement
         markLabel(endLabel);
 
         return null;
@@ -289,13 +239,10 @@ public class Compiler implements ASTVisitor<Void> {
 
     @Override
     public Void visit(ArrayLiteral node) {
-        // Компилируем элементы массива
         int elementCount = node.elements.size();
         for (ASTNode element : node.elements) {
             element.accept(this);
         }
-
-        // Создаем список из элементов
         addInstruction(new Instruction(Instruction.OpCode.BUILD_LIST, elementCount));
         return null;
     }

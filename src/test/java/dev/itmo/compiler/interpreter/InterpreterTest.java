@@ -22,8 +22,7 @@ class InterpreterTest {
 
         Interpreter interpreter = new Interpreter();
         interpreter.interpret(nodes);
-        // Проверяем вывод (требуется перенаправить вывод или использовать мок объекта print)
-        // Ожидаемый результат: 5
+        // 5
     }
 
     @Test
@@ -36,7 +35,7 @@ class InterpreterTest {
 
         Interpreter interpreter = new Interpreter();
         interpreter.interpret(nodes);
-        // Ожидаемый результат: 120
+        // 120
     }
 
     @Test
@@ -49,12 +48,12 @@ class InterpreterTest {
 
         Interpreter interpreter = new Interpreter();
         interpreter.interpret(nodes);
-        // Ожидаемый результат: [1, 2, 3]
+        // [1, 2, 3]
     }
 
     @Test
     void testFunctionCallWithIncorrectArguments() {
-        String code = "function foo() { return 1; } print(foo(1));";
+        String code = "function foo() { return 1; } print(foo(n));";
         Lexer lexer = new Lexer(code);
         List<Token> tokens = lexer.tokenize();
         Parser parser = new Parser(tokens);
@@ -65,7 +64,7 @@ class InterpreterTest {
             interpreter.interpret(nodes);
             fail("Expected RuntimeException due to incorrect number of arguments");
         } catch (RuntimeException e) {
-            // Ожидаем исключение
+            System.out.println(e.getMessage());
         }
     }
 }

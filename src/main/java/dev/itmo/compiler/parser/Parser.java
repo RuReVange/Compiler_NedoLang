@@ -140,7 +140,7 @@ public class Parser {
         ASTNode expr = parseEquality();
         if (match(TokenType.ASSIGN)) {
             Token equals = previous();
-            ASTNode value = parseAssignment();
+            ASTNode value = parseAssignment(); // для множественного присваивания a = b = c
             if (expr instanceof VariableExpression) {
                 String name = ((VariableExpression) expr).name;
                 return new Assignment(name, value);
@@ -214,8 +214,7 @@ public class Parser {
             String name = previous().lexeme;
             ASTNode expr = new VariableExpression(name);
             while (true) {
-                if (match(TokenType.LPAREN)) {
-                    // Функциональный вызов
+                if (match(TokenType.LPAREN)) { // fun
                     List<ASTNode> arguments = new ArrayList<>();
                     if (!check(TokenType.RPAREN)) {
                         do {
@@ -224,8 +223,7 @@ public class Parser {
                     }
                     consume(TokenType.RPAREN, "Expected ')' after arguments");
                     expr = new FunctionCallExpression(name, arguments);
-                } else if (match(TokenType.LBRACKET)) {
-                    // Доступ к элементу массива
+                } else if (match(TokenType.LBRACKET)) { // arr
                     ASTNode index = parseExpression();
                     consume(TokenType.RBRACKET, "Expected ']' after index");
                     expr = new ArrayAccess(expr, index);
@@ -236,7 +234,6 @@ public class Parser {
             return expr;
         }
         if (match(TokenType.LBRACKET)) {
-            // Литерал массива
             List<ASTNode> elements = new ArrayList<>();
             if (!check(TokenType.RBRACKET)) {
                 do {
@@ -259,7 +256,7 @@ public class Parser {
         return null;
     }
 
-    private boolean match(TokenType... types) {
+    private boolean match(TokenType ... types) {
         for (TokenType type : types) {
             if (check(type)) {
                 advance();
@@ -285,7 +282,6 @@ public class Parser {
 
     private Token peek() {
         if (pos >= tokens.size()) {
-            // Возвращаем EOF токен, если вышли за пределы списка
             Token lastToken = tokens.get(tokens.size() - 1);
             return new Token(TokenType.EOF, "", lastToken.line, lastToken.column);
         }
@@ -299,7 +295,7 @@ public class Parser {
     private Token consume(TokenType type, String message) {
         if (check(type)) return advance();
         error(peek(), message);
-        return null; // Не достигнуто
+        return null;
     }
 
     private void error(Token token, String message) {

@@ -5,23 +5,22 @@ import java.io.Serializable;
 public class Instruction implements Serializable {
     public enum OpCode {
 
-        // Стековые операции
+        // Стековые
         LOAD_CONST(0x01),
         LOAD_NAME(0x02),
         STORE_NAME(0x03),
         POP_TOP(0x04),
 
-        // Арифметические операции
+        // Арифметические
         BINARY_ADD(0x10),
         BINARY_SUBTRACT(0x11),
         BINARY_MULTIPLY(0x12),
         BINARY_DIVIDE(0x13),
         BINARY_MODULO(0x14),
 
-        // Логические операции
         COMPARE_OP(0x20),
 
-        // Управление потоком
+        // потоки
         JUMP_FORWARD(0x30),
         JUMP_ABSOLUTE(0x31),
         POP_JUMP_IF_FALSE(0x32),

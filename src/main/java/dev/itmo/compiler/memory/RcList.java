@@ -15,8 +15,8 @@ public class RcList extends RcObject {
     }
 
     public void addToFront(Object it){
-        if(it instanceof RcObject){
-            ((RcObject)it).incRef();
+        if(it instanceof RcObject object){
+            (object).incRef();
         }
         items.add(0,it);
     }

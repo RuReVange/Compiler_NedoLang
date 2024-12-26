@@ -20,12 +20,11 @@ public class VirtualMachine {
     public VirtualMachine(Bytecode bytecode) {
         this.instructions = bytecode.getInstructions();
         this.functionTable = bytecode.getFunctionTable();
-        // "глобальный" фрейм
+
         frames.push(new Frame(-1, new HashMap<>()));
         initBuiltins();
     }
 
-    /** Объявляем встроенные функции */
     private void initBuiltins() {
         globals.put("print", (NativeFunction) (vm, args) -> {
             for (Object arg : args) {
@@ -89,9 +88,9 @@ public class VirtualMachine {
                 break;
             }
             case LOAD_NAME: {
-                String name = (String)instr.operand;
+                String name = (String) instr.operand;
                 Object val = loadName(name);
-                if(val==null){
+                if(val == null){
                     throw new RuntimeException("Name '"+name+"' not defined");
                 }
                 push(val);
@@ -100,69 +99,11 @@ public class VirtualMachine {
             }
             case STORE_NAME: {
                 String name = (String)instr.operand;
-                Object value = pop(); // pop -> decRef
+                Object value = pop();
                 storeName(name, value);
                 ip++;
                 break;
             }
-//            case BINARY_ADD: {
-//                Object b = pop();
-//                Object a = pop();
-//                if(a instanceof Long && b instanceof Long){
-//                    push((Long)a + (Long)b);
-//                } else if(a instanceof String || b instanceof String){
-//                    push(String.valueOf(a) + String.valueOf(b));
-//                } else if(a instanceof RcList && b instanceof RcList){
-//                    RcList la = (RcList)a;
-//                    RcList lb = (RcList)b;
-//                    RcList result = new RcList();
-//                    for(Object it: la.getItems()) result.add(it);
-//                    for(Object it: lb.getItems()) result.add(it);
-//                    push(result);
-//                } else {
-//                    throw new RuntimeException("Unsupported types for +");
-//                }
-//                ip++;
-//                break;
-//            }
-//            case BINARY_ADD: {
-//                Object b = pop();
-//                Object a = pop();
-//                if(a instanceof Long && b instanceof Long) {
-//                    push((Long)a + (Long)b);
-//                } else if(a instanceof String || b instanceof String) {
-//                    push(String.valueOf(a) + String.valueOf(b));
-//                } else if((a instanceof RcList || a instanceof List) &&
-//                        (b instanceof RcList || b instanceof List)) {
-//                    // Создаем новый RcList
-//                    RcList result = new RcList();
-//
-//                    // Добавляем элементы из первого списка
-//                    List<?> la = (a instanceof RcList) ? ((RcList)a).getItems() : (List<?>)a;
-//                    for(Object it: la) {
-//                        if(it instanceof RcObject) {
-//                            ((RcObject)it).incRef(); // Увеличиваем счетчик ссылок
-//                        }
-//                        result.add(it);
-//                    }
-//
-//                    // Добавляем элементы из второго списка
-//                    List<?> lb = (b instanceof RcList) ? ((RcList)b).getItems() : (List<?>)b;
-//                    for(Object it: lb) {
-//                        if(it instanceof RcObject) {
-//                            ((RcObject)it).incRef(); // Увеличиваем счетчик ссылок
-//                        }
-//                        result.add(it);
-//                    }
-//
-//                    push(result);
-//                } else {
-//                    throw new RuntimeException("Unsupported types for +: " +
-//                            a.getClass() + " and " + b.getClass());
-//                }
-//                ip++;
-//                break;
-//            }
             case BINARY_ADD: {
                 Object b = pop();
                 Object a = pop();
@@ -186,12 +127,10 @@ public class VirtualMachine {
 //                    System.out.println("List A: " + listA);
 //                    System.out.println("List B: " + listB);
 
-                    // Добавляем элементы из первого списка
                     for(Object item : listA) {
                         result.add(item);
                     }
 
-                    // Добавляем элементы из второго списка
                     for(Object item : listB) {
                         result.add(item);
                     }
@@ -271,8 +210,8 @@ public class VirtualMachine {
                 break;
             }
             case CALL_FUNCTION: {
-                String funcName = (String)instr.operand;
-                int argCount = (int)instr.operand2;
+                String funcName = (String) instr.operand;
+                int argCount = (int) instr.operand2;
                 FunctionObject fn = functionTable.get(funcName);
                 if(fn == null){
                     throw new RuntimeException("Undefined function: "+funcName);
@@ -281,7 +220,7 @@ public class VirtualMachine {
                     throw new RuntimeException("Argument count mismatch for function "+funcName);
                 }
                 List<Object> args = new ArrayList<>();
-                for(int i=0; i<argCount; i++) {
+                for(int i = 0; i < argCount; i++) {
                     Object ar = pop();
                     if(ar instanceof RcObject) {
                         ((RcObject)ar).incRef();
@@ -289,10 +228,10 @@ public class VirtualMachine {
                     args.add(0, ar);
                 }
                 Map<String,Object> newLocals = new HashMap<>();
-                for(int i=0;i<argCount;i++){
+                for(int i = 0;i < argCount; i++){
                     newLocals.put(fn.parameters.get(i), args.get(i));
                 }
-                int returnAddress = ip+1;
+                int returnAddress = ip + 1;
                 frames.push(new Frame(returnAddress, newLocals));
                 ip = fn.address;
                 break;
@@ -320,31 +259,6 @@ public class VirtualMachine {
                 ip++;
                 break;
             }
-//            case RETURN_VALUE: {
-//                Object returnVal = pop();
-//                Frame fr = frames.pop();
-//                for (Object v : fr.locals.values()) {
-//                    if (v instanceof RcObject) {
-//                        ((RcObject) v).decRef();
-//                    }
-//                }
-////                if (frames.isEmpty()) {
-////                    ip = instructions.size();
-////                } else {
-////                    ip = fr.returnAddress;
-////                    if (returnVal instanceof RcObject) {
-////                        ((RcObject) returnVal).incRef();
-////                    }
-////                    push(returnVal);
-////                }
-//                if (frames.isEmpty()) {
-//                    ip = instructions.size();
-//                } else {
-//                    ip = fr.returnAddress;
-//                    push(returnVal); // push сам увеличит счетчик если нужно
-//                }
-//                break;
-//            }
             case RETURN_VALUE: {
                 Object returnVal = pop();
                 Frame fr = frames.pop();
@@ -365,24 +279,12 @@ public class VirtualMachine {
                 }
                 break;
             }
-//            case BUILD_LIST: {
-//                int count = (Integer)instr.operand;
-//                RcList list = new RcList();
-//                for(int i=0;i<count;i++){
-//                    Object v = pop(); // pop->decRef
-//                    list.addToFront(v);
-//                }
-//                // push -> incRef(list)
-//                push(list);
-//                ip++;
-//                break;
-//            }
             case BUILD_LIST: {
                 int count = (Integer)instr.operand;
                 RcList list = new RcList();
                 for(int i=0;i<count;i++){
                     Object v = pop();
-                    list.addToFront(v); // Достаточно одного увеличения счетчика здесь
+                    list.addToFront(v);
                 }
                 push(list);
                 ip++;
@@ -401,19 +303,6 @@ public class VirtualMachine {
                 ip++;
                 break;
             }
-//            case SUBSCR_STORE: {
-//                // на стеке: array, index, value
-//                Object value = pop();
-//                Object indexObj = pop();
-//                Object arrayObj = pop();
-//                if(!(arrayObj instanceof RcList)){
-//                    throw new RuntimeException("subscr_store on non-list");
-//                }
-//                int i = (int)(long)(Long)indexObj;
-//                ((RcList)arrayObj).set(i, value);
-//                ip++;
-//                break;
-//            }
             case SUBSCR_STORE: {
                 Object value = pop();
                 Object indexObj = pop();
@@ -434,7 +323,6 @@ public class VirtualMachine {
                 break;
             }
             case PRINT: {
-                // Если вы решили, что print-оператор — отдельный опкод
                 Object val = pop();
                 System.out.println(val);
                 ip++;
@@ -447,7 +335,7 @@ public class VirtualMachine {
 
     private Object loadName(String name){
         // Ищем в локальных фреймах (от верхнего к нижнему)
-        for(int i=frames.size()-1; i>=0; i--){
+        for(int i = frames.size() - 1; i >= 0; i--){
             Frame f = frames.get(i);
             if(f.locals.containsKey(name)){
                 return f.locals.get(name);
@@ -481,5 +369,12 @@ public class VirtualMachine {
             ((RcObject)top).decRef();
         }
         return top;
+    }
+
+    public Object getTopOfStack() {
+        if (stack.isEmpty()) {
+            return null;
+        }
+        return stack.peek();
     }
 }

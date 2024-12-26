@@ -17,22 +17,20 @@ import java.util.List;
 public class CompilerMain {
     public static void main(String[] args) {
         try {
-            String code = new String(Files.readAllBytes(Paths.get("src/main/resources/sort.nedolang")));
+            String code = new String(Files.readAllBytes(Paths.get("src/main/resources/factorial.nedolang")));
             Lexer lexer = new Lexer(code);
             List<Token> tokens = lexer.tokenize();
             Parser parser = new Parser(tokens);
             List<ASTNode> nodes = parser.parse();
-//            SemanticAnalyzer semanticAnalyzer = new SemanticAnalyzer();
-//            semanticAnalyzer.analyze(nodes);
+            SemanticAnalyzer semanticAnalyzer = new SemanticAnalyzer();
+            semanticAnalyzer.analyze(nodes);
 
             Interpreter interpreter = new Interpreter();
             interpreter.interpret(nodes);
 
             Compiler compiler = new Compiler();
             Bytecode bytecode = compiler.compile(nodes);
-//            bytecode.serialize("factorialByteCode.nedolang");
 
-//            Bytecode bytecode = Bytecode.deserialize("/Users/ioannboltonov/IdeaProjects/Compiler/src/main/resources/factorialByteCode.nedolang");
             VirtualMachine vm = new VirtualMachine(bytecode);
             vm.run();
 

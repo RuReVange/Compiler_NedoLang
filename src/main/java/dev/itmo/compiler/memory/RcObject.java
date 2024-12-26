@@ -34,6 +34,10 @@ public abstract class RcObject {
         }
     }
 
+    public int getRefCount() {
+        return refCount;
+    }
+
     protected abstract void destroy(Stack<RcObject> toDestroy);
 }
 

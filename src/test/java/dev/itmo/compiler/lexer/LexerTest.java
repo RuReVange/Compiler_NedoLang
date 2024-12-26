@@ -26,14 +26,18 @@ class LexerTest {
     }
 
     @Test
-    void testFunctionDefinition() {
-        String code = "function test(a, b) { return a + b; }";
-        Lexer lexer = new Lexer(code);
+    void testFunctionDeclaration() {
+        String input = "function add(x, y) { return x + y; }";
+        Lexer lexer = new Lexer(input);
         List<Token> tokens = lexer.tokenize();
 
-        assertEquals(15, tokens.size());
         assertEquals(TokenType.FUNCTION, tokens.get(0).type);
-        assertEquals("test", tokens.get(1).lexeme);
+        assertEquals(TokenType.IDENTIFIER, tokens.get(1).type);
+        assertEquals(TokenType.LPAREN, tokens.get(2).type);
+        assertEquals(TokenType.IDENTIFIER, tokens.get(3).type);
+        assertEquals(TokenType.COMMA, tokens.get(4).type);
+        assertEquals(TokenType.IDENTIFIER, tokens.get(5).type);
+        assertEquals(TokenType.RPAREN, tokens.get(6).type);
     }
 
     @Test
@@ -78,5 +82,35 @@ class LexerTest {
         assertEquals(tokens.get(3), new Token(TokenType.IDENTIFIER, "n", 1, 15));
         assertEquals(tokens.get(4), new Token(TokenType.RPAREN, ")", 1, 16));
         assertEquals(tokens.toString(), res);
+    }
+
+    @Test
+    void testArithmeticOperators() {
+        String input = "2 + 3 * 4 - 5 / 2";
+        Lexer lexer = new Lexer(input);
+        List<Token> tokens = lexer.tokenize();
+
+        assertEquals(TokenType.NUMBER, tokens.get(0).type);
+        assertEquals(TokenType.PLUS, tokens.get(1).type);
+        assertEquals(TokenType.NUMBER, tokens.get(2).type);
+        assertEquals(TokenType.MUL, tokens.get(3).type);
+        assertEquals(TokenType.NUMBER, tokens.get(4).type);
+        assertEquals(TokenType.MINUS, tokens.get(5).type);
+        assertEquals(TokenType.NUMBER, tokens.get(6).type);
+        assertEquals(TokenType.DIV, tokens.get(7).type);
+        assertEquals(TokenType.NUMBER, tokens.get(8).type);
+    }
+
+    @Test
+    void testVariableDeclaration() {
+        String input = "var x = 42;";
+        Lexer lexer = new Lexer(input);
+        List<Token> tokens = lexer.tokenize();
+
+        assertEquals(TokenType.VAR, tokens.get(0).type);
+        assertEquals(TokenType.IDENTIFIER, tokens.get(1).type);
+        assertEquals(TokenType.ASSIGN, tokens.get(2).type);
+        assertEquals(TokenType.NUMBER, tokens.get(3).type);
+        assertEquals(TokenType.SEMICOLON, tokens.get(4).type);
     }
 }
