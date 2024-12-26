@@ -76,7 +76,6 @@ class CompilerTest {
         assertTrue(instructions.size() >= 5);
         assertEquals(Instruction.OpCode.JUMP_FORWARD, instructions.get(0).opCode);
 
-        // Проверяем наличие функции в таблице функций
         FunctionObject addFunction = bytecode.getFunctionTable().get("add");
         assertNotNull(addFunction);
         assertEquals("add", addFunction.name);
@@ -93,7 +92,6 @@ class CompilerTest {
         assertTrue(instructions.size() >= 2);
         assertEquals(Instruction.OpCode.JUMP_FORWARD, instructions.get(0).opCode);
 
-        // Проверяем наличие необходимых инструкций для if-else
         assertTrue(instructions.stream()
                 .anyMatch(i -> i.opCode == Instruction.OpCode.POP_JUMP_IF_FALSE));
         assertTrue(instructions.stream()
@@ -112,7 +110,6 @@ class CompilerTest {
         assertTrue(instructions.size() >= 2);
         assertEquals(Instruction.OpCode.JUMP_FORWARD, instructions.get(0).opCode);
 
-        // Проверяем наличие инструкций для цикла
         assertTrue(instructions.stream()
                 .anyMatch(i -> i.opCode == Instruction.OpCode.POP_JUMP_IF_FALSE));
         assertTrue(instructions.stream()
@@ -129,7 +126,6 @@ class CompilerTest {
         assertTrue(instructions.size() >= 2);
         assertEquals(Instruction.OpCode.JUMP_FORWARD, instructions.get(0).opCode);
 
-        // Проверяем наличие операций с массивом
         assertTrue(instructions.stream()
                 .anyMatch(i -> i.opCode == Instruction.OpCode.BUILD_LIST));
         assertTrue(instructions.stream()
@@ -159,7 +155,6 @@ class CompilerTest {
         assertTrue(instructions.size() >= 8);
         assertEquals(Instruction.OpCode.JUMP_FORWARD, instructions.get(0).opCode);
 
-        // Проверяем наличие всех арифметических операций
         assertTrue(instructions.stream()
                 .anyMatch(i -> i.opCode == Instruction.OpCode.BINARY_ADD));
         assertTrue(instructions.stream()
@@ -180,10 +175,9 @@ class CompilerTest {
         );
         List<Instruction> instructions = bytecode.getInstructions();
 
-        assertTrue(instructions.size() >= 9); // JUMP_FORWARD + минимум 8 инструкций
+        assertTrue(instructions.size() >= 9);
         assertEquals(Instruction.OpCode.JUMP_FORWARD, instructions.get(0).opCode);
 
-        // Проверяем количество операций сохранения переменных
         assertEquals(3, instructions.stream()
                 .filter(i -> i.opCode == Instruction.OpCode.STORE_NAME)
                 .count());

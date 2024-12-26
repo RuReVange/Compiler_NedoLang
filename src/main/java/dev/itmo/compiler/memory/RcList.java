@@ -53,7 +53,6 @@ public class RcList extends RcObject {
             if(o instanceof RcObject){
                 RcObject rc = (RcObject)o;
                 rc.decRef();
-                // если он тоже обнулил счётчик, добавляем в очередь
                 if(rc.refCount==0 && !rc.markedForDeletion){
                     rc.markedForDeletion=true;
                     toDestroy.push(rc);

@@ -16,4 +16,3 @@ public class BuiltInFunction implements Function {
         return implementation.apply(arguments);
     }
 }
-

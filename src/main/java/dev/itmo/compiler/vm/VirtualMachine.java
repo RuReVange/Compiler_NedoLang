@@ -119,11 +119,9 @@ public class VirtualMachine {
                         (b instanceof RcList || b instanceof List)) {
                     RcList result = new RcList();
 
-                    // Преобразуем входные данные в List
                     List<?> listA = (a instanceof RcList) ? ((RcList)a).getItems() : (List<?>)a;
                     List<?> listB = (b instanceof RcList) ? ((RcList)b).getItems() : (List<?>)b;
 
-//                    System.out.println("Concatenating lists:");
 //                    System.out.println("List A: " + listA);
 //                    System.out.println("List B: " + listB);
 
@@ -263,10 +261,9 @@ public class VirtualMachine {
                 Object returnVal = pop();
                 Frame fr = frames.pop();
 
-                // Не уменьшаем счетчик ссылок для возвращаемого значения
                 for (Map.Entry<String, Object> entry : fr.locals.entrySet()) {
                     Object v = entry.getValue();
-                    if (v instanceof RcObject && v != returnVal) {  // Добавлена проверка
+                    if (v instanceof RcObject && v != returnVal) {
                         ((RcObject) v).decRef();
                     }
                 }
@@ -282,7 +279,7 @@ public class VirtualMachine {
             case BUILD_LIST: {
                 int count = (Integer)instr.operand;
                 RcList list = new RcList();
-                for(int i=0;i<count;i++){
+                for(int i = 0; i < count; i++){
                     Object v = pop();
                     list.addToFront(v);
                 }
@@ -313,7 +310,6 @@ public class VirtualMachine {
                 RcList list = (RcList)arrayObj;
                 int i = (int)(long)(Long)indexObj;
 
-                // Расширяем список если нужно
                 while (list.size() <= i) {
                     list.add(null);
                 }
@@ -334,14 +330,12 @@ public class VirtualMachine {
     }
 
     private Object loadName(String name){
-        // Ищем в локальных фреймах (от верхнего к нижнему)
         for(int i = frames.size() - 1; i >= 0; i--){
             Frame f = frames.get(i);
             if(f.locals.containsKey(name)){
                 return f.locals.get(name);
             }
         }
-        // потом глобальные
         return globals.get(name);
     }
 

@@ -4,14 +4,11 @@ import java.io.Serializable;
 
 public class Instruction implements Serializable {
     public enum OpCode {
-
-        // Стековые
         LOAD_CONST(0x01),
         LOAD_NAME(0x02),
         STORE_NAME(0x03),
         POP_TOP(0x04),
 
-        // Арифметические
         BINARY_ADD(0x10),
         BINARY_SUBTRACT(0x11),
         BINARY_MULTIPLY(0x12),
@@ -20,22 +17,18 @@ public class Instruction implements Serializable {
 
         COMPARE_OP(0x20),
 
-        // потоки
         JUMP_FORWARD(0x30),
         JUMP_ABSOLUTE(0x31),
         POP_JUMP_IF_FALSE(0x32),
         RETURN_VALUE(0x33),
         CALL_FUNCTION(0x34),
 
-        // Работа с последовательностями
         BUILD_LIST(0x40),
         SUBSCR_LOAD(0x41),
         SUBSCR_STORE(0x42),
 
-        // Встроенные функции
         CALL_NATIVE(0x50),
 
-        // Прочие операции
         PRINT(0x60);
 
         private final byte code;

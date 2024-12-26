@@ -21,7 +21,6 @@ public class Interpreter implements ASTVisitor<Object> {
         globalEnv.define("true", true);
         globalEnv.define("false", false);
 
-        // Встроенные функции
         globalEnv.define("print", new BuiltInFunction("print", (args) -> {
             for (Object arg : args) {
                 System.out.println(arg);
@@ -29,7 +28,6 @@ public class Interpreter implements ASTVisitor<Object> {
             return null;
         }));
 
-        // Новая функция length для массивов
         globalEnv.define("length", new BuiltInFunction("length", (args) -> {
             if (args.size() != 1 || !(args.get(0) instanceof List)) {
                 throw new RuntimeException("length() expects one array argument");
@@ -86,7 +84,7 @@ public class Interpreter implements ASTVisitor<Object> {
                 default: throw new RuntimeException("Invalid operator for boolean values: " + node.operator);
             }
         }
-        // Обработка конкатенации массивов
+
         if (node.operator.equals("+")) {
             if (left instanceof List && right instanceof List) {
                 List<Object> result = new ArrayList<>();
@@ -94,7 +92,7 @@ public class Interpreter implements ASTVisitor<Object> {
                 result.addAll((List<?>) right);
                 return result;
             }
-            // Добавляем обработку случая, когда один из операндов - массив
+
             if (left instanceof List) {
                 List<Object> result = new ArrayList<>();
                 result.addAll((List<?>) left);
@@ -117,7 +115,6 @@ public class Interpreter implements ASTVisitor<Object> {
             }
         }
 
-        // Существующая обработка числовых операций
         if (left instanceof Long && right instanceof Long) {
             long l = (Long) left;
             long r = (Long) right;
@@ -288,7 +285,6 @@ public class Interpreter implements ASTVisitor<Object> {
             throw new RuntimeException("Array index cannot be negative");
         }
 
-        // Расширяем массив при необходимости
         while (list.size() <= idx) {
             list.add(null);
         }

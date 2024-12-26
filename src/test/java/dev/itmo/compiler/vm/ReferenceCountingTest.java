@@ -45,15 +45,12 @@ class ReferenceCountingTest {
         RcList outer = new RcList();
         RcList inner = new RcList();
 
-        // Начальные значения
         assertEquals(0, outer.getRefCount());
         assertEquals(0, inner.getRefCount());
 
-        // Добавляем inner в outer
         outer.add(inner);
         assertEquals(1, inner.getRefCount());
 
-        // Сохраняем outer в VM
         bytecode.addInstruction(new Instruction(Instruction.OpCode.LOAD_CONST, outer));
         bytecode.addInstruction(new Instruction(Instruction.OpCode.STORE_NAME, "outer"));
         vm.run();
@@ -67,7 +64,6 @@ class ReferenceCountingTest {
         RcList list1 = new RcList();
         RcList list2 = new RcList();
 
-        // Сохраняем первый список
         bytecode.addInstruction(new Instruction(Instruction.OpCode.LOAD_CONST, list1));
         bytecode.addInstruction(new Instruction(Instruction.OpCode.STORE_NAME, "myList"));
         vm.run();
@@ -75,7 +71,6 @@ class ReferenceCountingTest {
         assertEquals(1, list1.getRefCount());
         assertEquals(0, list2.getRefCount());
 
-        // Переприсваиваем переменной второй список
         bytecode.addInstruction(new Instruction(Instruction.OpCode.LOAD_CONST, list2));
         bytecode.addInstruction(new Instruction(Instruction.OpCode.STORE_NAME, "myList"));
         vm.run();
@@ -89,11 +84,9 @@ class ReferenceCountingTest {
         RcList list = new RcList();
         RcList element = new RcList();
 
-        // Добавляем element в list
         list.add(element);
         assertEquals(1, element.getRefCount());
 
-        // Сохраняем list в VM
         bytecode.addInstruction(new Instruction(Instruction.OpCode.LOAD_CONST, list));
         bytecode.addInstruction(new Instruction(Instruction.OpCode.STORE_NAME, "list"));
         vm.run();
@@ -101,7 +94,6 @@ class ReferenceCountingTest {
         assertEquals(1, list.getRefCount());
         assertEquals(1, element.getRefCount());
 
-        // Заменяем element на null
         list.set(0, null);
         assertEquals(0, element.getRefCount());
     }
@@ -110,7 +102,6 @@ class ReferenceCountingTest {
     void testRefCountWithMultipleReferences() {
         RcList list = new RcList();
 
-        // Сохраняем список в две разные переменные
         bytecode.addInstruction(new Instruction(Instruction.OpCode.LOAD_CONST, list));
         bytecode.addInstruction(new Instruction(Instruction.OpCode.STORE_NAME, "list1"));
         bytecode.addInstruction(new Instruction(Instruction.OpCode.LOAD_CONST, list));
@@ -123,50 +114,44 @@ class ReferenceCountingTest {
     @Test
     void testRefCountInStack() {
         RcList list = new RcList();
+        bytecode.addInstruction(new Instruction(Instruction.OpCode.LOAD_CONST, list));
+        vm.run();
 
-        // Загружаем список в стек
-                bytecode.addInstruction(new Instruction(Instruction.OpCode.LOAD_CONST, list));
-                vm.run();
+        assertEquals(1, list.getRefCount());
+    }
 
-                assertEquals(1, list.getRefCount());
-            }
+    @Test
+    void testRefCountWithNestedStructures() {
+        RcList outer = new RcList();
+        RcList middle = new RcList();
+        RcList inner = new RcList();
 
-            @Test
-            void testRefCountWithNestedStructures() {
-                RcList outer = new RcList();
-                RcList middle = new RcList();
-                RcList inner = new RcList();
+        middle.add(inner);
+        outer.add(middle);
 
-                // Создаем структуру outer -> middle -> inner
-                middle.add(inner);
-                outer.add(middle);
+        assertEquals(1, middle.getRefCount());
+        assertEquals(1, inner.getRefCount());
 
-                assertEquals(1, middle.getRefCount());
-                assertEquals(1, inner.getRefCount());
+        bytecode.addInstruction(new Instruction(Instruction.OpCode.LOAD_CONST, outer));
+        bytecode.addInstruction(new Instruction(Instruction.OpCode.STORE_NAME, "outer"));
+        vm.run();
 
-                // Сохраняем в VM
-                bytecode.addInstruction(new Instruction(Instruction.OpCode.LOAD_CONST, outer));
-                bytecode.addInstruction(new Instruction(Instruction.OpCode.STORE_NAME, "outer"));
-                vm.run();
+        assertEquals(1, outer.getRefCount());
+        assertEquals(1, middle.getRefCount());
+        assertEquals(1, inner.getRefCount());
+    }
 
-                assertEquals(1, outer.getRefCount());
-                assertEquals(1, middle.getRefCount());
-                assertEquals(1, inner.getRefCount());
-            }
+    @Test
+    void testRefCountWithSubscrOperations() {
+        RcList list = new RcList();
+        RcList element = new RcList();
+        list.add(element);
 
-            @Test
-            void testRefCountWithSubscrOperations() {
-                RcList list = new RcList();
-                RcList element = new RcList();
-                list.add(element);
+        bytecode.addInstruction(new Instruction(Instruction.OpCode.LOAD_CONST, list));
+        bytecode.addInstruction(new Instruction(Instruction.OpCode.LOAD_CONST, 0L));
+        bytecode.addInstruction(new Instruction(Instruction.OpCode.SUBSCR_LOAD));
+        vm.run();
 
-                // Загружаем список и получаем элемент по индексу
-                bytecode.addInstruction(new Instruction(Instruction.OpCode.LOAD_CONST, list));
-                bytecode.addInstruction(new Instruction(Instruction.OpCode.LOAD_CONST, 0L));
-                bytecode.addInstruction(new Instruction(Instruction.OpCode.SUBSCR_LOAD));
-                vm.run();
-
-                // Элемент должен быть в списке и в стеке
-                assertEquals(2, element.getRefCount());
-            }
+        assertEquals(2, element.getRefCount());
+    }
 }
