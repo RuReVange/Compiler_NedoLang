@@ -26,7 +26,7 @@ public class Frame {
                         return entry.getKey() + "=" + value;
                     }
                 })
-                .limit(7) // Обрезаем вывод до 7 элементов в карте
+                .limit(7)
                 .toList() +
                 '}';
     }
