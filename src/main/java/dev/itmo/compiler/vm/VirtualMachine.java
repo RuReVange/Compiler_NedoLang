@@ -5,21 +5,27 @@ import dev.itmo.compiler.memory.RcObject;
 import dev.itmo.compiler.vm.bytecode.Bytecode;
 import dev.itmo.compiler.vm.bytecode.FunctionObject;
 import dev.itmo.compiler.vm.bytecode.Instruction;
+import dev.itmo.compiler.vm.jit.JitCompiler;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class VirtualMachine {
-    private final List<Instruction> instructions;
+    protected final List<Instruction> instructions;
     private final Map<String, FunctionObject> functionTable;
     private final Stack<Object> stack = new Stack<>();
     private final Map<String, Object> globals = new HashMap<>();
     private final Stack<Frame> frames = new Stack<>();
-    private int ip = 0;
+    private final JitCompiler jit;
+    protected int ip = 0;
+    private boolean measurePerformance = true;
 
     public VirtualMachine(Bytecode bytecode) {
         this.instructions = bytecode.getInstructions();
         this.functionTable = bytecode.getFunctionTable();
+
+        this.jit = new JitCompiler();
+        this.jit.setVM(this);
 
         frames.push(new Frame(-1, new HashMap<>()));
         initBuiltins();
@@ -59,28 +65,54 @@ public class VirtualMachine {
         globals.put("false", false);
     }
 
+//    public void run() {
+//
+//        while (ip < instructions.size()) {
+//            Instruction instr = instructions.get(ip);
+////            System.out.println(instr);
+//            try {
+//                execute(instr);
+//            } catch (Exception e) {
+//                System.err.println("Error executing instruction: " + e.getMessage());
+//                e.printStackTrace();
+//                break;
+//            }
+////            AtomicInteger counter = new AtomicInteger(0);
+////            System.out.println("Stack: " + stack.stream()
+////                    .takeWhile(e -> counter.incrementAndGet() < 7)
+////                    .toList());
+////            System.out.println("Frames: " + frames);
+////            System.out.println("IP: " + ip);
+//        }
+//        System.out.println("Program finished");
+//    }
+
     public void run() {
+        long startTime = System.nanoTime();
+
         while (ip < instructions.size()) {
-            Instruction instr = instructions.get(ip);
-//            System.out.println(instr);
-            try {
+            jit.incrementCount(ip);
+            JitCompiler.OptimizedBlock optimizedBlock = jit.getOptimizedBlock(ip);
+
+            if (optimizedBlock != null) {
+                ip = optimizedBlock.execute(this);
+            } else {
+                Instruction instr = instructions.get(ip);
                 execute(instr);
-            } catch (Exception e) {
-                System.err.println("Error executing instruction: " + e.getMessage());
-                e.printStackTrace();
-                break;
             }
-//            AtomicInteger counter = new AtomicInteger(0);
-//            System.out.println("Stack: " + stack.stream()
-//                    .takeWhile(e -> counter.incrementAndGet() < 7)
-//                    .toList());
-//            System.out.println("Frames: " + frames);
-//            System.out.println("IP: " + ip);
         }
-        System.out.println("Program finished");
+
+        if (measurePerformance) {
+            long endTime = System.nanoTime();
+            double totalSeconds = (endTime - startTime) / 1_000_000_000.0;
+            System.out.println("\ntotal exec time: " +
+                    String.format("%.3f sec", totalSeconds));
+            jit.printStatistics();
+        }
     }
 
-    private void execute(Instruction instr) {
+
+    protected void execute(Instruction instr) {
         switch(instr.opCode) {
             case LOAD_CONST: {
                 push(instr.operand);
@@ -350,14 +382,14 @@ public class VirtualMachine {
         }
     }
 
-    private void push(Object obj){
+    public void push(Object obj){
         if(obj instanceof RcObject){
             ((RcObject)obj).incRef();
         }
         stack.push(obj);
     }
 
-    private Object pop(){
+    public Object pop(){
         Object top = stack.pop();
         if(top instanceof RcObject){
             ((RcObject)top).decRef();
@@ -370,5 +402,9 @@ public class VirtualMachine {
             return null;
         }
         return stack.peek();
+    }
+
+    public List<Instruction> getInstructions() {
+        return instructions;
     }
 }
