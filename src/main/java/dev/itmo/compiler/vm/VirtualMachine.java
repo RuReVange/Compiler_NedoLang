@@ -100,6 +100,12 @@ public class VirtualMachine {
                 Instruction instr = instructions.get(ip);
                 execute(instr);
             }
+//            AtomicInteger counter = new AtomicInteger(0);
+//            System.out.println("Stack: " + stack.stream()
+//                    .takeWhile(e -> counter.incrementAndGet() < 7)
+//                    .toList());
+//            System.out.println("Frames: " + frames);
+//            System.out.println("IP: " + ip);
         }
 
         if (measurePerformance) {
@@ -361,7 +367,7 @@ public class VirtualMachine {
         }
     }
 
-    private Object loadName(String name){
+    public Object loadName(String name){
         for(int i = frames.size() - 1; i >= 0; i--){
             Frame f = frames.get(i);
             if(f.locals.containsKey(name)){

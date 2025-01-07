@@ -7,7 +7,6 @@ public class Instruction implements Serializable {
         LOAD_CONST(0x01),
         LOAD_NAME(0x02),
         STORE_NAME(0x03),
-        POP_TOP(0x04),
 
         BINARY_ADD(0x10),
         BINARY_SUBTRACT(0x11),
