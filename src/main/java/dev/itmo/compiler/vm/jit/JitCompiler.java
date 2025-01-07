@@ -218,10 +218,7 @@ public class JitCompiler {
     }
 
     private void optimizeLoadStore(int ip, Instruction loadName, Instruction storeName) {
-        OptimizedOperation operation = vm -> {
-            // Ничего не делаем, так как загрузка и сохранение с одним именем ничего не меняют
-            return ip + 2;
-        };
+        OptimizedOperation operation = vm -> ip + 2;
         optimizedBlocks.put(ip, new OptimizedBlock(Arrays.asList(loadName, storeName), operation));
     }
 
@@ -238,7 +235,7 @@ public class JitCompiler {
     }
 
     public void printStatistics() {
-        System.out.println("\n========== JIT Stats ===============");
+        System.out.println("\n========== JIT Stats ================");
         System.out.println("Total execs: " + totalExecutions);
         System.out.println("Optimized execs: " + optimizedExecutions);
 

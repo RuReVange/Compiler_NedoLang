@@ -17,7 +17,7 @@ import java.util.List;
 public class CompilerMain {
     public static void main(String[] args) {
         try {
-            String code = new String(Files.readAllBytes(Paths.get("src/main/resources/factorial.nedolang")));
+            String code = new String(Files.readAllBytes(Paths.get("src/main/resources/sort.nedolang")));
             Lexer lexer = new Lexer(code);
             List<Token> tokens = lexer.tokenize();
             Parser parser = new Parser(tokens);

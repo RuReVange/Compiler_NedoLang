@@ -65,28 +65,6 @@ public class VirtualMachine {
         globals.put("false", false);
     }
 
-//    public void run() {
-//
-//        while (ip < instructions.size()) {
-//            Instruction instr = instructions.get(ip);
-////            System.out.println(instr);
-//            try {
-//                execute(instr);
-//            } catch (Exception e) {
-//                System.err.println("Error executing instruction: " + e.getMessage());
-//                e.printStackTrace();
-//                break;
-//            }
-////            AtomicInteger counter = new AtomicInteger(0);
-////            System.out.println("Stack: " + stack.stream()
-////                    .takeWhile(e -> counter.incrementAndGet() < 7)
-////                    .toList());
-////            System.out.println("Frames: " + frames);
-////            System.out.println("IP: " + ip);
-//        }
-//        System.out.println("Program finished");
-//    }
-
     public void run() {
         long startTime = System.nanoTime();
 
@@ -118,7 +96,7 @@ public class VirtualMachine {
     }
 
 
-    protected void execute(Instruction instr) {
+    public void execute(Instruction instr) {
         switch(instr.opCode) {
             case LOAD_CONST: {
                 push(instr.operand);
@@ -377,7 +355,7 @@ public class VirtualMachine {
         return globals.get(name);
     }
 
-    private void storeName(String name, Object value){
+    public void storeName(String name, Object value){
         Frame topFrame = frames.peek();
         Object oldVal = topFrame.locals.put(name, value);
         if(oldVal instanceof RcObject){
