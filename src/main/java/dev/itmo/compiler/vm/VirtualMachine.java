@@ -8,7 +8,6 @@ import dev.itmo.compiler.vm.bytecode.Instruction;
 import dev.itmo.compiler.vm.jit.JitCompiler;
 
 import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
 
 public class VirtualMachine {
     protected final List<Instruction> instructions;
@@ -191,16 +190,15 @@ public class VirtualMachine {
                 String op = (String)instr.operand;
                 Object b = pop();
                 Object a = pop();
-                boolean r;
-                switch(op) {
-                    case "==": r = Objects.equals(a,b); break;
-                    case "!=": r = !Objects.equals(a,b); break;
-                    case "<":  r = ((Long)a)<((Long)b);  break;
-                    case "<=": r = ((Long)a)<=((Long)b); break;
-                    case ">":  r = ((Long)a)>((Long)b);  break;
-                    case ">=": r = ((Long)a)>=((Long)b); break;
-                    default: throw new RuntimeException("Unknown compare op: " + op);
-                }
+                boolean r = switch (op) {
+                    case "==" -> Objects.equals(a, b);
+                    case "!=" -> !Objects.equals(a, b);
+                    case "<" -> ((Long) a) < ((Long) b);
+                    case "<=" -> ((Long) a) <= ((Long) b);
+                    case ">" -> ((Long) a) > ((Long) b);
+                    case ">=" -> ((Long) a) >= ((Long) b);
+                    default -> throw new RuntimeException("Unknown compare op: " + op);
+                };
                 push(r);
                 ip++;
                 break;
@@ -233,14 +231,7 @@ public class VirtualMachine {
                 if(argCount != fn.parameters.size()){
                     throw new RuntimeException("Argument count mismatch for function "+funcName);
                 }
-                List<Object> args = new ArrayList<>();
-                for(int i = 0; i < argCount; i++) {
-                    Object ar = pop();
-                    if(ar instanceof RcObject) {
-                        ((RcObject)ar).incRef();
-                    }
-                    args.add(0, ar);
-                }
+                List<Object> args = allocArgumentsInFunStack(argCount);
                 Map<String,Object> newLocals = new HashMap<>();
                 for(int i = 0;i < argCount; i++){
                     newLocals.put(fn.parameters.get(i), args.get(i));
@@ -254,18 +245,10 @@ public class VirtualMachine {
                 String funcName = (String)instr.operand;
                 int argCount = (Integer)instr.operand2;
                 Object nativeF = globals.get(funcName);
-                if(!(nativeF instanceof NativeFunction)){
+                if(!(nativeF instanceof NativeFunction nf)){
                     throw new RuntimeException("Unknown native function: "+funcName);
                 }
-                NativeFunction nf = (NativeFunction)nativeF;
-                List<Object> args = new ArrayList<>();
-                for(int i=0;i<argCount;i++){
-                    Object ar = pop();
-                    if(ar instanceof RcObject){
-                        ((RcObject)ar).incRef();
-                    }
-                    args.add(0,ar);
-                }
+                List<Object> args = allocArgumentsInFunStack(argCount);
                 Object res = nf.call(this, args);
                 if(res!=null){
                     push(res);
@@ -306,11 +289,10 @@ public class VirtualMachine {
             case SUBSCR_LOAD: {
                 Object idx = pop();
                 Object arr = pop();
-                if(!(arr instanceof RcList)){
+                if(!(arr instanceof RcList rlist)){
                     throw new RuntimeException("subscr_load expects a list");
                 }
                 int i = (int)(long)(Long)idx;
-                RcList rlist = (RcList)arr;
                 Object val = rlist.get(i);
                 push(val);
                 ip++;
@@ -320,10 +302,9 @@ public class VirtualMachine {
                 Object value = pop();
                 Object indexObj = pop();
                 Object arrayObj = pop();
-                if(!(arrayObj instanceof RcList)){
+                if(!(arrayObj instanceof RcList list)){
                     throw new RuntimeException("subscr_store on non-list");
                 }
-                RcList list = (RcList)arrayObj;
                 int i = (int)(long)(Long)indexObj;
 
                 while (list.size() <= i) {
@@ -343,6 +324,18 @@ public class VirtualMachine {
             default:
                 throw new RuntimeException("Unknown opcode: "+instr.opCode);
         }
+    }
+
+    private List<Object> allocArgumentsInFunStack(int argCount) {
+        List<Object> args = new ArrayList<>();
+        for (int i = 0; i < argCount; i++) {
+            Object ar = pop();
+            if (ar instanceof RcObject) {
+                ((RcObject) ar).incRef();
+            }
+            args.add(0, ar);
+        }
+        return args;
     }
 
     public Object loadName(String name){

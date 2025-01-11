@@ -2,6 +2,7 @@ package dev.itmo.compiler.vm;
 
 import dev.itmo.compiler.memory.RcList;
 import dev.itmo.compiler.vm.bytecode.Bytecode;
+import dev.itmo.compiler.vm.bytecode.FunctionObject;
 import dev.itmo.compiler.vm.bytecode.Instruction;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
