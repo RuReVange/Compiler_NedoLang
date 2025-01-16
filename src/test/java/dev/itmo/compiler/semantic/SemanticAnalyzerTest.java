@@ -27,7 +27,7 @@ class SemanticAnalyzerTest {
 
     @Test
     void testSimpleVariableDeclaration() {
-        List<ASTNode> nodes = Arrays.asList(
+        List<ASTNode> nodes = List.of(
                 new VariableDeclaration("x", new NumberExpression(42))
         );
         assertDoesNotThrow(() -> analyzer.analyze(nodes));
@@ -35,7 +35,7 @@ class SemanticAnalyzerTest {
 
     @Test
     void testUndefinedVariableUsage() {
-        List<ASTNode> nodes = Arrays.asList(
+        List<ASTNode> nodes = List.of(
                 new Assignment("x", new NumberExpression(42))
         );
 
