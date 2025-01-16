@@ -69,7 +69,14 @@ class CompilerTest {
     @Test
     void testCompileSimpleFunction() {
         Bytecode bytecode = compileSingleExpression(
-                "function add(a, b) { return a + b; }"
+                """
+                        var a = 10;
+                        var b = a;
+                        function add(x, y) { return x + y; }
+                        add(a, b);
+                        """
+
+
         );
         List<Instruction> instructions = bytecode.getInstructions();
 
@@ -81,7 +88,30 @@ class CompilerTest {
         assertEquals("add", addFunction.name);
         assertEquals(2, addFunction.parameters.size());
     }
+    @Test
+    void testCompileSimpleFunctionWithoutReturnStatement() {
+        Bytecode bytecode = compileSingleExpression(
+                "function hello(a) { print(a); }"
+        );
+        List<Instruction> instructions = bytecode.getInstructions();
 
+        assertEquals(Instruction.OpCode.JUMP_FORWARD, instructions.get(0).opCode);
+        assertEquals(Instruction.OpCode.RETURN_VALUE, instructions.get(4).opCode);
+        assertNull(instructions.get(4).operand);
+        assertNull(instructions.get(4).operand2);
+    }
+    @Test
+    void testCompileFunctionWithEqualsExpression() {
+        Bytecode bytecode = compileSingleExpression(
+                """
+                        function add(a, b) { return a + b; }
+                        var i = 1;
+                        var j = 2;
+                        var k = add(i,j);
+                        """
+        );
+        List<Instruction> instructions = bytecode.getInstructions();
+    }
     @Test
     void testCompileIfStatement() {
         Bytecode bytecode = compileSingleExpression(
@@ -167,11 +197,11 @@ class CompilerTest {
     void testCompileMultipleStatements() {
         Bytecode bytecode = compileSingleExpression(
                 """
-                var x = 10;
-                var y = 20;
-                var z = x + y;
-                print(z);
-                """
+                        var x = 10;
+                        var y = 20;
+                        var z = x + y;
+                        print(z);
+                        """
         );
         List<Instruction> instructions = bytecode.getInstructions();
 
@@ -182,5 +212,20 @@ class CompilerTest {
                 .filter(i -> i.opCode == Instruction.OpCode.STORE_NAME)
                 .count());
     }
-}
+        @Test
+        public void testInliningMethodAfter200Calls() {
+            Bytecode bytecode = compileSingleExpression("""
+                var i = 202;
+                function println(a) {
+                    print(a);
+                }
+                while (i > 0) {
+                    i = i - 1;
+                    println(i);
+                }
+                """);
+            var inst = bytecode.getInstructions();
+        }
+    }
+
 

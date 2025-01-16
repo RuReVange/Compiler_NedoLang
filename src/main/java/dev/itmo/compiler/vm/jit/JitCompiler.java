@@ -2,11 +2,15 @@ package dev.itmo.compiler.vm.jit;
 
 import dev.itmo.compiler.memory.RcList;
 import dev.itmo.compiler.vm.VirtualMachine;
+import dev.itmo.compiler.vm.bytecode.FunctionObject;
 import dev.itmo.compiler.vm.bytecode.Instruction;
+import dev.itmo.compiler.vm.bytecode.Instruction.OpCode;
 import java.util.*;
 
 public class JitCompiler {
-    private static final int HOT_THRESHOLD = 10;
+    private static final int CONSTANT_HOT_THRESHOLD = 10;
+    private static final int INLINING_HOT_THRESHOLD = 200;
+    private static final int MAX_INSTRUCTIONS_COUNT = 6;
     private final Map<Integer, Integer> executionCount = new HashMap<>();
     private final Map<Integer, OptimizedBlock> optimizedBlocks = new HashMap<>();
     private VirtualMachine vm;
@@ -36,10 +40,21 @@ public class JitCompiler {
         totalExecutions++;
         executionCount.merge(ip, 1, Integer::sum);
 
-        if (executionCount.get(ip) >= HOT_THRESHOLD && !optimizedBlocks.containsKey(ip)) {
+        if (executionCount.get(ip) >= INLINING_HOT_THRESHOLD) {
+            tryInlineFunction(ip);
+        }
+        else if (executionCount.get(ip) >= CONSTANT_HOT_THRESHOLD && !optimizedBlocks.containsKey(ip)) {
 //            System.out.println("Optimizing block at IP " + ip +
 //                    " (execution count: " + executionCount.get(ip) + ")");
             tryOptimize(ip);
+        }
+
+    }
+    private void tryInlineFunction(int ip) {
+        List<Instruction> instructions = vm.getInstructions();
+        Instruction current = instructions.get(ip);
+        if (current.opCode == OpCode.CALL_FUNCTION && isCanBeOptimised((String) current.operand, instructions)) {
+            inlineFunction(ip, (String) current.operand, (int) current.operand2);
         }
     }
 
@@ -50,19 +65,19 @@ public class JitCompiler {
             Instruction current = instructions.get(ip);
             Instruction next = instructions.get(ip + 1);
 
-            if (current.opCode == Instruction.OpCode.LOAD_CONST && next.opCode == Instruction.OpCode.BINARY_ADD) {
+            if (current.opCode == OpCode.LOAD_CONST && next.opCode == OpCode.BINARY_ADD) {
                 optimizeConstantArithmetic(ip, current, next, "+");
-            } else if (current.opCode == Instruction.OpCode.LOAD_CONST && next.opCode == Instruction.OpCode.BINARY_SUBTRACT) {
+            } else if (current.opCode == OpCode.LOAD_CONST && next.opCode == OpCode.BINARY_SUBTRACT) {
                 optimizeConstantArithmetic(ip, current, next, "-");
-            } else if (current.opCode == Instruction.OpCode.LOAD_CONST && next.opCode == Instruction.OpCode.BINARY_MULTIPLY) {
+            } else if (current.opCode == OpCode.LOAD_CONST && next.opCode == OpCode.BINARY_MULTIPLY) {
                 optimizeConstantArithmetic(ip, current, next, "*");
-            } else if (current.opCode == Instruction.OpCode.LOAD_CONST && next.opCode == Instruction.OpCode.BINARY_DIVIDE) {
+            } else if (current.opCode == OpCode.LOAD_CONST && next.opCode == OpCode.BINARY_DIVIDE) {
                 optimizeConstantArithmetic(ip, current, next, "/");
-            } else if (current.opCode == Instruction.OpCode.LOAD_CONST && next.opCode == Instruction.OpCode.BINARY_MODULO) {
+            } else if (current.opCode == OpCode.LOAD_CONST && next.opCode == OpCode.BINARY_MODULO) {
                 optimizeConstantArithmetic(ip, current, next, "%");
-            } else if (current.opCode == Instruction.OpCode.LOAD_CONST && next.opCode == Instruction.OpCode.COMPARE_OP) {
+            } else if (current.opCode == OpCode.LOAD_CONST && next.opCode == OpCode.COMPARE_OP) {
                 optimizeConstantComparison(ip, current, next);
-            } else if (current.opCode == Instruction.OpCode.LOAD_NAME && next.opCode == Instruction.OpCode.STORE_NAME && current.operand.equals(next.operand)) {
+            } else if (current.opCode == OpCode.LOAD_NAME && next.opCode == OpCode.STORE_NAME && current.operand.equals(next.operand)) {
                 optimizeLoadStore(ip, current, next);
             }
         }
@@ -71,11 +86,11 @@ public class JitCompiler {
             Instruction next = instructions.get(ip + 1);
             Instruction nextNext = instructions.get(ip + 2);
 
-            if (current.opCode == Instruction.OpCode.LOAD_NAME && next.opCode == Instruction.OpCode.LOAD_NAME &&
-                    (nextNext.opCode == Instruction.OpCode.BINARY_ADD ||
-                            nextNext.opCode == Instruction.OpCode.BINARY_SUBTRACT ||
-                            nextNext.opCode == Instruction.OpCode.BINARY_MULTIPLY ||
-                            nextNext.opCode == Instruction.OpCode.BINARY_DIVIDE)) {
+            if (current.opCode == OpCode.LOAD_NAME && next.opCode == OpCode.LOAD_NAME &&
+                    (nextNext.opCode == OpCode.BINARY_ADD ||
+                            nextNext.opCode == OpCode.BINARY_SUBTRACT ||
+                            nextNext.opCode == OpCode.BINARY_MULTIPLY ||
+                            nextNext.opCode == OpCode.BINARY_DIVIDE)) {
                 optimizeBinaryOperation(ip, current, next, nextNext);
             }
         }
@@ -96,9 +111,7 @@ public class JitCompiler {
 
                 Object result = null;
 
-                if (val1 instanceof Long && val2 instanceof Long) {
-                    Long longVal1 = (Long)val1;
-                    Long longVal2 = (Long)val2;
+                if (val1 instanceof Long longVal1 && val2 instanceof Long longVal2) {
 
                     switch (binaryOp.opCode) {
                         case BINARY_ADD:
@@ -118,7 +131,7 @@ public class JitCompiler {
                     }
                 } else if ((val1 instanceof RcList || val1 instanceof List) &&
                         (val2 instanceof RcList || val2 instanceof List) &&
-                        binaryOp.opCode == Instruction.OpCode.BINARY_ADD) {
+                        binaryOp.opCode == OpCode.BINARY_ADD) {
                     RcList resultList = new RcList();
 
                     List<?> list1 = (val1 instanceof RcList) ?
@@ -161,15 +174,14 @@ public class JitCompiler {
             if (constant instanceof Long && value instanceof Long) {
                 long constVal = (Long) constant;
                 long val = (Long) value;
-                long result;
-                switch (operator) {
-                    case "+": result = val + constVal; break;
-                    case "-": result = val - constVal; break;
-                    case "*": result = val * constVal; break;
-                    case "/": result = val / constVal; break;
-                    case "%": result = val % constVal; break;
-                    default: throw new RuntimeException("Unknown operator: " + operator);
-                }
+                long result = switch (operator) {
+                    case "+" -> val + constVal;
+                    case "-" -> val - constVal;
+                    case "*" -> val * constVal;
+                    case "/" -> val / constVal;
+                    case "%" -> val % constVal;
+                    default -> throw new RuntimeException("Unknown operator: " + operator);
+                };
 
                 vm.push(result);
                 return ip + 2;
@@ -222,6 +234,67 @@ public class JitCompiler {
         optimizedBlocks.put(ip, new OptimizedBlock(Arrays.asList(loadName, storeName), operation));
     }
 
+    private Boolean isCanBeOptimised(String funcName, List<Instruction> instructions) {
+        FunctionObject func = vm.getFunction(funcName);
+
+        int funcIp = func.address;
+        Instruction instruction = instructions.get(funcIp);
+        while (instruction.opCode != OpCode.RETURN_VALUE) {
+            if (instruction.opCode == OpCode.CALL_FUNCTION
+                    || instruction.opCode == OpCode.POP_JUMP_IF_FALSE
+                    || instruction.opCode == OpCode.JUMP_ABSOLUTE
+                    ||  instructions.get(funcIp).opCode == OpCode.STORE_NAME)
+                return false;
+
+            instruction = instructions.get(++funcIp);
+        }
+
+        return funcIp-func.address < MAX_INSTRUCTIONS_COUNT;
+    }
+
+    private void inlineFunction(int ip, String funcName, Integer argCount) {
+            List<Instruction> instructions = vm.getInstructions();
+            FunctionObject fun = vm.getFunction(funcName);
+            Map<String, String> funVarMap = new HashMap<>();
+
+            int inlineInstructionIp = fun.address;
+            List<Instruction> inlineInstructions = new LinkedList<>();
+            Instruction instruction = instructions.get(inlineInstructionIp);
+            for (int i = ip; i < ip + argCount; i++) {
+                String updatedVarName = fun.name + "_" + UUID.randomUUID();
+                funVarMap.put((String) instruction.operand, updatedVarName);
+                inlineInstructions.add(new Instruction(OpCode.STORE_NAME, updatedVarName));
+                inlineInstructions.add(new Instruction(OpCode.LOAD_NAME, updatedVarName));
+                instruction = instructions.get(++inlineInstructionIp);
+            }
+            while (instruction.opCode != OpCode.RETURN_VALUE) {
+                if(instruction.opCode == OpCode.LOAD_NAME) {
+                    String updatedVarName = fun.name + "_" + UUID.randomUUID();
+                    funVarMap.put((String) instruction.operand, updatedVarName);
+                    inlineInstructions.add(new Instruction(OpCode.LOAD_NAME, updatedVarName));
+                    instruction = instructions.get(++inlineInstructionIp);
+                    continue;
+                }
+                if(instruction.opCode == OpCode.STORE_NAME) {
+                    String updatedVarName = fun.name + "_" + UUID.randomUUID();
+                    funVarMap.put((String) instruction.operand, updatedVarName);
+                    inlineInstructions.add(new Instruction(OpCode.STORE_NAME, updatedVarName));
+                    instruction = instructions.get(++inlineInstructionIp);
+                    continue;
+                }
+                Instruction updatedInstruction = new Instruction(instruction.opCode, instruction.operand, instruction.operand2);
+
+                updatedInstruction.operand = updateOperand(instruction.operand, funVarMap);
+                updatedInstruction.operand2 = updateOperand(instruction.operand2, funVarMap);
+
+                inlineInstructions.add(updatedInstruction);
+
+                instruction = instructions.get(++inlineInstructionIp);
+            }
+            tryFixJumping(instructions, ip, inlineInstructions.size());
+            vm.getInstructions().remove(ip);
+            vm.getInstructions().addAll(ip, inlineInstructions);
+    }
     public OptimizedBlock getOptimizedBlock(int ip) {
         OptimizedBlock block = optimizedBlocks.get(ip);
         if (block != null) {
@@ -246,5 +319,17 @@ public class JitCompiler {
                 .sorted((a, b) -> b.getValue().compareTo(a.getValue()))
                 .limit(5)
                 .forEach(e -> System.out.println("ip " + e.getKey() + "=> " + e.getValue() + " execs"));
+    }
+    private Object updateOperand(Object operand, Map<String, String> funVarMap) {
+        if (operand instanceof String && funVarMap.containsKey(operand))
+            return funVarMap.get(operand);
+        return operand;
+    }
+    private void tryFixJumping(List<Instruction> originalInstructions,int insertAddress, int countNewInstructions) {
+        for (Instruction instruction : originalInstructions) {
+            if ((instruction.opCode == OpCode.JUMP_ABSOLUTE || instruction.opCode == OpCode.POP_JUMP_IF_FALSE) && (int) instruction.operand >= insertAddress) {
+                instruction.operand = (int) instruction.operand + countNewInstructions;
+            }
+        }
     }
 }

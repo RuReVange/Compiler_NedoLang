@@ -1,11 +1,18 @@
 package dev.itmo.compiler.vm;
 
+import dev.itmo.compiler.lexer.Lexer;
 import dev.itmo.compiler.memory.RcList;
+import dev.itmo.compiler.parser.ASTNode;
+import dev.itmo.compiler.parser.Parser;
 import dev.itmo.compiler.vm.bytecode.Bytecode;
+import dev.itmo.compiler.vm.bytecode.Compiler;
 import dev.itmo.compiler.vm.bytecode.FunctionObject;
 import dev.itmo.compiler.vm.bytecode.Instruction;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import java.time.Instant;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -145,5 +152,34 @@ class VirtualMachineTest {
 
         outer.set(0, null);
         assertEquals(0, inner.getRefCount());
+    }
+    @Test
+    public void testInliningMethodPerfomanceAfter10000Calls() {
+        String code = """
+                var i = 10000;
+                function minusOne(a) { return a-1; }
+                while (i > 0) {
+                    i = minusOne(i);
+                }
+                """;
+        Lexer lexer = new Lexer(code);
+        Parser parser = new Parser(lexer.tokenize());
+        List<ASTNode> nodes = parser.parse();
+        Compiler compiler = new Compiler();
+        VirtualMachine vmTest = new VirtualMachine(compiler.compile(nodes));
+        vmTest.run();
+        String code1 = """
+                var i = 200;
+                function minusOne(a) { return a-1; }
+                while (i > 0) {
+                    i = minusOne(i);
+                }
+                """;
+        Lexer lexer1 = new Lexer(code1);
+        Parser parser1 = new Parser(lexer1.tokenize());
+        List<ASTNode> nodes1 = parser1.parse();
+        Compiler compiler1 = new Compiler();
+        VirtualMachine vmTest1 = new VirtualMachine(compiler1.compile(nodes1));
+        vmTest1.run();
     }
 }

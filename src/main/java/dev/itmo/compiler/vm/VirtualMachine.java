@@ -44,10 +44,9 @@ public class VirtualMachine {
             return (long)((RcList)args.get(0)).size();
         });
         globals.put("push", (NativeFunction) (vm, args) -> {
-            if (args.size()!=2 || !(args.get(0) instanceof RcList)) {
+            if (args.size()!=2 || !(args.get(0) instanceof RcList lst)) {
                 throw new RuntimeException("push expects (list, value)");
             }
-            RcList lst = (RcList) args.get(0);
             Object val = args.get(1);
             lst.add(val);
             return null;
@@ -231,9 +230,9 @@ public class VirtualMachine {
                 if(argCount != fn.parameters.size()){
                     throw new RuntimeException("Argument count mismatch for function "+funcName);
                 }
-                List<Object> args = allocArgumentsInFunStack(argCount);
+                List<Object> args = getVariablesFromStack(argCount);
                 Map<String,Object> newLocals = new HashMap<>();
-                for(int i = 0;i < argCount; i++){
+                for(int i = 0; i < argCount; i++){
                     newLocals.put(fn.parameters.get(i), args.get(i));
                 }
                 int returnAddress = ip + 1;
@@ -248,7 +247,7 @@ public class VirtualMachine {
                 if(!(nativeF instanceof NativeFunction nf)){
                     throw new RuntimeException("Unknown native function: "+funcName);
                 }
-                List<Object> args = allocArgumentsInFunStack(argCount);
+                List<Object> args = getVariablesFromStack(argCount);
                 Object res = nf.call(this, args);
                 if(res!=null){
                     push(res);
@@ -326,18 +325,6 @@ public class VirtualMachine {
         }
     }
 
-    private List<Object> allocArgumentsInFunStack(int argCount) {
-        List<Object> args = new ArrayList<>();
-        for (int i = 0; i < argCount; i++) {
-            Object ar = pop();
-            if (ar instanceof RcObject) {
-                ((RcObject) ar).incRef();
-            }
-            args.add(0, ar);
-        }
-        return args;
-    }
-
     public Object loadName(String name){
         for(int i = frames.size() - 1; i >= 0; i--){
             Frame f = frames.get(i);
@@ -383,5 +370,21 @@ public class VirtualMachine {
 
     public List<Instruction> getInstructions() {
         return instructions;
+    }
+
+    public FunctionObject getFunction(String name) {
+        return functionTable.get(name);
+    }
+
+    public List<Object> getVariablesFromStack(int argCount) {
+        List<Object> args = new ArrayList<>();
+        for (int i = 0; i < argCount; i++) {
+            Object ar = pop();
+            if (ar instanceof RcObject) {
+                ((RcObject) ar).incRef();
+            }
+            args.add(0, ar);
+        }
+        return args;
     }
 }
